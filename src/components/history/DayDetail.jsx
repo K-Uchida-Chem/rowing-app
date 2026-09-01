@@ -69,7 +69,9 @@ const DayDetail = ({ date, records }) => {
 
           {/* Strength Records */}
           {records.strength && records.strength.map(record => {
-            const exerciseName = STRENGTH_EXERCISES[record.exerciseId] || '筋トレ';
+            // record.exercise contains the ID (or custom string)
+            const exerciseData = STRENGTH_EXERCISES[record.exercise];
+            const exerciseName = exerciseData ? exerciseData.name : (record.exerciseName || record.exercise || '筋トレ');
             return (
               <div key={`str-${record.id}`} className="glass-card" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-warning)'}}>
                 <div style={headerStyle}>
