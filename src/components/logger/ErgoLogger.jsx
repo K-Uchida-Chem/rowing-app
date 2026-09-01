@@ -6,7 +6,7 @@ import { extractErgoData, extractWatchData, hasApiKey } from '../../services/ocr
 // Time formatting helper: 1523 -> 1:52.3, 30000 -> 30:00.0
 const formatRowingTime = (val) => {
   if (!val) return '';
-  if (val.includes(':') || val.includes('.')) return val; // ユーザーが明示的に打った場合は自動変換をスキップ
+  if (val.includes(':') || val.includes('.')) return val;
   const digits = val.replace(/\D/g, '');
   if (!digits) return val;
   
@@ -18,6 +18,26 @@ const formatRowingTime = (val) => {
   if (len === 6) return `${digits.slice(0, 1)}:${digits.slice(1, 3)}:${digits.slice(3, 5)}.${digits.slice(5)}`;
   if (len === 7) return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4, 6)}.${digits.slice(6)}`;
   return digits;
+};
+
+// Time parsing helper: "1:52.3" -> 112.3 (seconds)
+const parseTimeToSeconds = (timeStr) => {
+  if (!timeStr) return 0;
+  const match = timeStr.trim().match(/^(\d+):(\d+(\.\d+)?)$/);
+  if (match) {
+    return parseInt(match[1], 10) * 60 + parseFloat(match[2]);
+  }
+  // Try to parse just seconds if no colon
+  const sec = parseFloat(timeStr);
+  return isNaN(sec) ? 0 : sec;
+};
+
+// Seconds to time string helper: 112.3 -> "1:52.3", 1800 -> "30:00.0"
+const formatSecondsToTime = (totalSeconds) => {
+  if (!totalSeconds || isNaN(totalSeconds) || totalSeconds <= 0) return '';
+  const m = Math.floor(totalSeconds / 60);
+  const s = (totalSeconds % 60).toFixed(1);
+  return `${m}:${s.padStart(4, '0')}`;
 };
 
 const ERGO_TYPES = [
@@ -52,12 +72,14 @@ export default function ErgoLogger() {
     maxHR: '',
     calories: '',
     rpe: 5,
-    rpe: 5,
     memo: '',
     videoUrl: '',
     intervals: [],
-    session: 'AM', // AM, PM, or Night
+    session: 'AM',
   });
+
+  const [menuFormat, setMenuFormat] = useState('normal'); // 'normal', 'distance', 'time'
+  const [menuTarget, setMenuTarget] = useState(''); // e.g. '5000' or '30:00'
 
   useEffect(() => {
     if (form.split && !form.watts) {
@@ -148,15 +170,60 @@ export default function ErgoLogger() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      let finalTime = form.time;
+      let finalDistance = form.distance ? Number(form.distance) : null;
+      let finalSplit = form.split;
+
+      // 自動集計 (メニュー形式が指定されている場合)
+      if (menuFormat !== 'normal' && form.intervals.length > 0) {
+        let totalTimeSec = 0;
+        let totalDistance = 0;
+        let splitSum = 0;
+        let validSets = 0;
+
+        for (const set of form.intervals) {
+          const splitSec = parseTimeToSeconds(set.split);
+          const t = parseTimeToSeconds(set.time);
+          totalTimeSec += t;
+          
+          if (menuFormat === 'distance') {
+            const d = Number(set.distance) || 0;
+            totalDistance += d;
+            if (splitSec > 0) { splitSum += splitSec; validSets++; }
+          } else if (menuFormat === 'time') {
+            if (t > 0 && splitSec > 0) {
+              const d = (t / splitSec) * 500;
+              totalDistance += d;
+              splitSum += splitSec;
+              validSets++;
+            }
+          }
+        }
+
+        if (totalTimeSec > 0) finalTime = formatSecondsToTime(totalTimeSec);
+        if (totalDistance > 0) finalDistance = Math.round(totalDistance);
+        if (validSets > 0) finalSplit = formatSecondsToTime(splitSum / validSets);
+      }
+
+      // Calculate final watts based on finalSplit
+      let finalWatts = form.watts ? Number(form.watts) : null;
+      if (!finalWatts && finalSplit) {
+        const splitSec = parseTimeToSeconds(finalSplit);
+        if (splitSec > 0) {
+          const pace = splitSec / 500;
+          finalWatts = Math.round(2.8 / Math.pow(pace, 3));
+        }
+      }
+
       await addErgoRecord({
         date: form.date,
         session: form.session,
         type: selectedType?.zone || 'other',
         zone: selectedType?.zone || null,
-        time: form.time,
-        distance: form.distance ? Number(form.distance) : null,
-        split: form.split,
-        watts: form.watts ? Number(form.watts) : null,
+        time: finalTime,
+        distance: finalDistance,
+        split: finalSplit,
+        watts: finalWatts,
         rate: form.rate ? Number(form.rate) : null,
         hr: form.avgHR ? Number(form.avgHR) : null,
         maxHR: form.maxHR ? Number(form.maxHR) : null,
@@ -374,80 +441,135 @@ export default function ErgoLogger() {
         )}
       </div>
 
-      {/* ─── Ergo Data Fields ────────────────────────────── */}
+      {/* ─── Menu Format Selector ────────────────────────────── */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">🚣</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-            エルゴデータ
-          </h3>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <InputField label="タイム (自動フォーマット)" placeholder="30000 -> 30:00.0" value={form.time} onChange={handleTimeChange} id="ergo-time" />
-          <InputField label="距離 (m)" placeholder="7500" value={form.distance} onChange={(v) => updateField('distance', v)} type="number" id="ergo-distance" />
-          <InputField label="500mスプリット" placeholder="1523 -> 1:52.3" value={form.split} onChange={handleSplitChange} id="ergo-split" />
-          <InputField label="ワット (W)" placeholder="190" value={form.watts} onChange={(v) => updateField('watts', v)} type="number" id="ergo-watts" />
-          <InputField label="レート (SPM)" placeholder="20" value={form.rate} onChange={(v) => updateField('rate', v)} type="number" id="ergo-rate" />
+        <div className="flex gap-2 bg-[var(--color-surface-700)] p-1 rounded-xl">
+          {[
+            { id: 'normal', label: '通常記録', icon: '📝' },
+            { id: 'distance', label: '距離メニュー', icon: '📏' },
+            { id: 'time', label: '時間メニュー', icon: '⏱️' },
+          ].map(fmt => (
+            <button
+              key={fmt.id}
+              onClick={() => setMenuFormat(fmt.id)}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1
+                ${menuFormat === fmt.id 
+                  ? 'bg-[var(--color-accent-primary)] text-white shadow-md' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[rgba(255,255,255,0.05)]'}`}
+            >
+              <span>{fmt.icon}</span> {fmt.label}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* ─── Ergo Data Fields ────────────────────────────── */}
+      {menuFormat === 'normal' && (
+        <div className="glass-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">🚣</span>
+            <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+              エルゴデータ
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <InputField label="タイム (自動フォーマット)" placeholder="30000 -> 30:00.0" value={form.time} onChange={handleTimeChange} id="ergo-time" />
+            <InputField label="距離 (m)" placeholder="7500" value={form.distance} onChange={(v) => updateField('distance', v)} type="number" id="ergo-distance" />
+            <InputField label="500mスプリット" placeholder="1523 -> 1:52.3" value={form.split} onChange={handleSplitChange} id="ergo-split" />
+            <InputField label="ワット (W)" placeholder="190" value={form.watts} onChange={(v) => updateField('watts', v)} type="number" id="ergo-watts" />
+            <InputField label="レート (SPM)" placeholder="20" value={form.rate} onChange={(v) => updateField('rate', v)} type="number" id="ergo-rate" />
+          </div>
+        </div>
+      )}
 
       {/* ─── Interval Details ────────────────────────────── */}
       <div className="glass-card p-4">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">⏱️</span>
+          <span className="text-base">{menuFormat === 'normal' ? '⏱️' : '📋'}</span>
           <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-            インターバル詳細 (任意)
+            {menuFormat === 'normal' ? 'インターバル詳細 (任意)' : 'セット記録'}
           </h3>
         </div>
-          <div className="space-y-3">
-            {form.intervals.map((interval, index) => (
-              <div key={index} className="flex items-end gap-2 p-3 bg-[var(--color-surface-700)] rounded-xl border border-[rgba(56,189,248,0.08)]">
-                <div className="flex-1">
-                  <InputField
-                    label="距離(m)"
-                    placeholder="500"
-                    type="number"
-                    value={interval.distance}
-                    onChange={(v) => {
-                      const newIntervals = [...form.intervals];
-                      newIntervals[index].distance = v;
-                      updateField('intervals', newIntervals);
-                    }}
-                  />
-                </div>
-                <div className="flex-1">
-                  <InputField
-                    label="タイム"
-                    placeholder="1450 -> 1:45.0"
-                    value={interval.time}
-                    onChange={(v) => handleIntervalChange(index, 'time', v)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <InputField
-                    label="スプリット"
-                    placeholder="1450 -> 1:45.0"
-                    value={interval.split}
-                    onChange={(v) => handleIntervalChange(index, 'split', v)}
-                  />
-                </div>
+        
+        {menuFormat !== 'normal' && (
+          <div className="mb-4 text-xs text-[var(--color-text-secondary)] bg-[rgba(56,189,248,0.1)] p-2 rounded-lg border border-[rgba(56,189,248,0.2)]">
+            ℹ️ 各セットの数値を入力すると、全体のタイム・距離・平均スプリットが自動計算されます。
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {form.intervals.map((interval, index) => (
+            <div key={index} className="flex flex-col gap-2 p-3 bg-[var(--color-surface-700)] rounded-xl border border-[rgba(56,189,248,0.08)]">
+              <div className="flex justify-between items-center text-xs font-bold text-[var(--color-text-secondary)]">
+                <span>Set {index + 1}</span>
                 <button
                   onClick={() => {
                     const newIntervals = form.intervals.filter((_, i) => i !== index);
                     updateField('intervals', newIntervals);
                   }}
-                  className="w-10 h-10 mb-0.5 flex items-center justify-center rounded-xl bg-[rgba(248,113,113,0.1)] text-[var(--color-accent-danger)] hover:bg-[rgba(248,113,113,0.2)] transition-colors"
+                  className="text-[var(--color-accent-danger)] hover:text-red-400"
                 >
-                  ✕
+                  削除 ✕
                 </button>
               </div>
-            ))}
+              
+              <div className="flex gap-2">
+                {menuFormat !== 'time' && (
+                  <div className="flex-1">
+                    <InputField
+                      label={menuFormat === 'distance' ? "設定距離(m)" : "距離(m)"}
+                      placeholder="5000"
+                      type="number"
+                      value={interval.distance}
+                      onChange={(v) => {
+                        const newIntervals = [...form.intervals];
+                        newIntervals[index].distance = v;
+                        updateField('intervals', newIntervals);
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {menuFormat !== 'distance' && menuFormat !== 'normal' && (
+                  <div className="flex-1">
+                    <InputField
+                      label="設定タイム"
+                      placeholder="30:00"
+                      value={interval.time}
+                      onChange={(v) => handleIntervalChange(index, 'time', v)}
+                    />
+                  </div>
+                )}
+                
+                {menuFormat === 'distance' && (
+                  <div className="flex-1">
+                    <InputField
+                      label="かかった時間"
+                      placeholder="18:30"
+                      value={interval.time}
+                      onChange={(v) => handleIntervalChange(index, 'time', v)}
+                    />
+                  </div>
+                )}
+
+                <div className="flex-1">
+                  <InputField
+                    label="平均スプリット"
+                    placeholder="1:55.0"
+                    value={interval.split}
+                    onChange={(v) => handleIntervalChange(index, 'split', v)}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
             <button
               onClick={() => updateField('intervals', [...form.intervals, { distance: '', time: '', split: '' }])}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-dashed border-[rgba(56,189,248,0.2)] hover:bg-[rgba(56,189,248,0.05)] transition-colors"
+              className="w-full py-2.5 rounded-xl text-xs font-semibold text-[var(--color-text-secondary)] border border-dashed border-[rgba(56,189,248,0.2)] hover:bg-[rgba(56,189,248,0.05)] transition-colors mt-2"
             >
-              + インターバルを追加
+              + セットを追加
             </button>
           </div>
         </div>
