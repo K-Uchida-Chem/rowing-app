@@ -92,22 +92,20 @@ export default function StrengthLogger() {
     try {
       const promises = [];
       for (const exercise of exercises) {
-        const sets = getSets(exercise.id);
-        for (let i = 0; i < sets.length; i++) {
-          const set = sets[i];
-          if (set.weight && set.reps) {
-            promises.push(
-              addStrengthRecord({
-                date,
-                exercise: exercise.id,
-                day: selectedDay,
-                weight: Number(set.weight),
-                reps: Number(set.reps),
-                sets: i + 1,
-                phase,
-              })
-            );
-          }
+        const setsArray = getSets(exercise.id)
+          .filter(s => s.weight && s.reps)
+          .map(s => ({ weight: Number(s.weight), reps: Number(s.reps) }));
+          
+        if (setsArray.length > 0) {
+          promises.push(
+            addStrengthRecord({
+              date,
+              exercise: exercise.id,
+              day: selectedDay,
+              sets: setsArray,
+              phase,
+            })
+          );
         }
       }
       await Promise.all(promises);

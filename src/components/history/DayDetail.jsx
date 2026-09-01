@@ -78,7 +78,7 @@ const DayDetail = ({ date, records }) => {
                   <span style={{ color: 'var(--color-accent-warning)', fontWeight: 'bold' }}>{exerciseName}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  {record.sets && record.sets.map((set, idx) => {
+                  {Array.isArray(record.sets) ? record.sets.map((set, idx) => {
                     const oneRM = calculateEstimated1RM(set.weight, set.reps);
                     return (
                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-primary)' }}>
@@ -86,7 +86,12 @@ const DayDetail = ({ date, records }) => {
                         <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>推定1RM: {oneRM}kg</span>
                       </div>
                     );
-                  })}
+                  }) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-primary)' }}>
+                      <span>Set {record.sets || 1}: {record.weight}kg × {record.reps}回</span>
+                      <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>推定1RM: {calculateEstimated1RM(record.weight, record.reps)}kg</span>
+                    </div>
+                  )}
                 </div>
                 {record.memo && (
                   <div style={{ marginTop: '0.5rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
