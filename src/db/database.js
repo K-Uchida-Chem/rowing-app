@@ -33,6 +33,55 @@ db.version(2).stores({
   weeklySchedule: 'dayOfWeek',
 });
 
+/**
+ * Export all data as a JSON string
+ */
+export const exportData = async () => {
+  const data = {
+    ergoRecords: await db.ergoRecords.toArray(),
+    strengthRecords: await db.strengthRecords.toArray(),
+    nutritionRecords: await db.nutritionRecords.toArray(),
+    conditionRecords: await db.conditionRecords.toArray(),
+    bodyWeightRecords: await db.bodyWeightRecords.toArray(),
+    weeklySchedule: await db.weeklySchedule.toArray(),
+  };
+  return JSON.stringify(data);
+};
+
+/**
+ * Import data from a JSON string (WARNING: Overwrites existing data)
+ */
+export const importData = async (jsonString) => {
+  try {
+    const data = JSON.parse(jsonString);
+    
+    await db.transaction('rw', db.ergoRecords, db.strengthRecords, db.nutritionRecords, db.conditionRecords, db.bodyWeightRecords, db.weeklySchedule, async () => {
+      // Clear all existing data
+      await Promise.all([
+        db.ergoRecords.clear(),
+        db.strengthRecords.clear(),
+        db.nutritionRecords.clear(),
+        db.conditionRecords.clear(),
+        db.bodyWeightRecords.clear(),
+        db.weeklySchedule.clear(),
+      ]);
+
+      // Bulk add new data
+      if (data.ergoRecords?.length) await db.ergoRecords.bulkAdd(data.ergoRecords);
+      if (data.strengthRecords?.length) await db.strengthRecords.bulkAdd(data.strengthRecords);
+      if (data.nutritionRecords?.length) await db.nutritionRecords.bulkAdd(data.nutritionRecords);
+      if (data.conditionRecords?.length) await db.conditionRecords.bulkAdd(data.conditionRecords);
+      if (data.bodyWeightRecords?.length) await db.bodyWeightRecords.bulkAdd(data.bodyWeightRecords);
+      if (data.weeklySchedule?.length) await db.weeklySchedule.bulkAdd(data.weeklySchedule);
+    });
+    
+    return true;
+  } catch (err) {
+    console.error('Failed to import data:', err);
+    throw err;
+  }
+};
+
 export default db;
 
 // ─── Helper Functions ─────────────────────────────────────

@@ -5,6 +5,7 @@ import LoggerPage from './pages/LoggerPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import HistoryPage from './pages/HistoryPage';
 import ApiKeySettings from './components/settings/ApiKeySettings';
+import UpdateToast from './components/common/UpdateToast';
 import './index.css';
 
 export default function App() {
@@ -41,6 +42,8 @@ export default function App() {
         isOpen={showApiSettings}
         onClose={() => setShowApiSettings(false)}
       />
+
+      <UpdateToast />
     </>
   );
 }

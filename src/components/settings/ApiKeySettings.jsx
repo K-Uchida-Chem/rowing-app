@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { getApiKey, setApiKey, hasApiKey } from '../../services/ocrService';
+import { exportData, importData } from '../../db/database';
 
 /**
  * API Key settings modal for Gemini API configuration.
@@ -26,6 +27,49 @@ export default function ApiKeySettings({ isOpen, onClose }) {
     setApiKey('');
   };
 
+  const fileInputRef = useRef(null);
+  
+  const handleExport = async () => {
+    try {
+      const jsonData = await exportData();
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rowpro-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('エクスポートに失敗しました');
+    }
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (window.confirm('現在のデータはすべて上書きされます。インポートしてもよろしいですか？')) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          await importData(e.target.result);
+          alert('インポートが完了しました。ページを再読み込みします。');
+          window.location.reload();
+        } catch (err) {
+          alert('インポートに失敗しました。ファイルが壊れている可能性があります。');
+        }
+      };
+      reader.readAsText(file);
+    }
+    
+    // reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
@@ -44,9 +88,9 @@ export default function ApiKeySettings({ isOpen, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🔑</span>
+            <span className="text-lg">⚙️</span>
             <h3 className="text-base font-bold text-[var(--color-text-primary)]">
-              Gemini API 設定
+              各種設定 (API & データ)
             </h3>
           </div>
           <button
@@ -104,7 +148,7 @@ export default function ApiKeySettings({ isOpen, onClose }) {
         </div>
 
         {/* Buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 mb-6">
           <button
             onClick={handleClear}
             className="px-4 py-2.5 rounded-xl text-xs font-medium bg-[var(--color-surface-600)] text-[var(--color-text-secondary)] border border-[rgba(56,189,248,0.06)] cursor-pointer transition-all duration-200 hover:bg-[var(--color-surface-500)]"
@@ -125,6 +169,44 @@ export default function ApiKeySettings({ isOpen, onClose }) {
             {saved ? '✓ 保存しました' : '保存'}
           </button>
         </div>
+
+        {/* Divider */}
+        <div className="h-px bg-[var(--color-surface-600)] w-full mb-5"></div>
+
+        {/* Backup / Restore Section */}
+        <div className="mb-2 flex items-center gap-2">
+          <span className="text-base">💾</span>
+          <h4 className="text-sm font-bold text-[var(--color-text-primary)]">
+            データのバックアップ・復元
+          </h4>
+        </div>
+        <p className="text-[10px] text-[var(--color-text-muted)] mb-4 leading-relaxed">
+          すべての記録データをJSONファイルとしてエクスポート・インポートできます。定期的なバックアップを推奨します。
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={handleExport}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[rgba(56,189,248,0.12)] text-[var(--color-accent-primary)] border border-[rgba(56,189,248,0.2)] hover:bg-[rgba(56,189,248,0.2)] transition-colors"
+          >
+            エクスポート
+          </button>
+          
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-[rgba(255,167,38,0.12)] text-[var(--color-accent-warning)] border border-[rgba(255,167,38,0.2)] hover:bg-[rgba(255,167,38,0.2)] transition-colors"
+          >
+            インポート (上書き)
+          </button>
+          <input 
+            type="file" 
+            accept=".json"
+            ref={fileInputRef}
+            onChange={handleImport}
+            style={{ display: 'none' }}
+          />
+        </div>
+
       </div>
     </div>
   );
