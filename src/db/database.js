@@ -278,3 +278,25 @@ export async function updateWeeklySchedule(scheduleArray) {
     await db.weeklySchedule.bulkAdd(scheduleArray);
   });
 }
+
+// ─── Generic CRUD Helpers ───────────────────────────────
+
+/**
+ * Delete a specific record from a specific table.
+ */
+export async function deleteRecord(tableName, id) {
+  if (db[tableName]) {
+    return await db[tableName].delete(id);
+  }
+  throw new Error(`Table ${tableName} not found.`);
+}
+
+/**
+ * Update a specific record in a specific table.
+ */
+export async function updateRecord(tableName, id, newData) {
+  if (db[tableName]) {
+    return await db[tableName].update(id, newData);
+  }
+  throw new Error(`Table ${tableName} not found.`);
+}

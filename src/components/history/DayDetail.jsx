@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { STRENGTH_EXERCISES } from '../../db/masterData';
-import { calculateEstimated1RM } from '../../db/database';
+import { calculateEstimated1RM, deleteRecord, updateRecord } from '../../db/database';
+import RecordEditModal from './RecordEditModal';
 
-const DayDetail = ({ date, records }) => {
+const DayDetail = ({ date, records, onRecordChange }) => {
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [editingTable, setEditingTable] = useState('');
   if (!date) return null;
 
   const formatDate = (date) => {
@@ -19,11 +22,39 @@ const DayDetail = ({ date, records }) => {
     (records.bodyWeight && records.bodyWeight.length > 0)
   );
 
+  const handleDelete = async (tableName, id) => {
+    if (window.confirm('この記録を削除してもよろしいですか？')) {
+      try {
+        await deleteRecord(tableName, id);
+        if (onRecordChange) onRecordChange();
+      } catch (err) {
+        alert('削除に失敗しました');
+      }
+    }
+  };
+
   return (
     <div className="day-detail" style={{ marginTop: '1.5rem' }}>
       <h3 style={{ color: 'var(--color-text-primary)', marginBottom: '1rem' }}>
         {formatDate(date)}
       </h3>
+
+      {editingRecord && (
+        <RecordEditModal
+          record={editingRecord}
+          tableName={editingTable}
+          onClose={() => setEditingRecord(null)}
+          onSave={async (newData) => {
+            try {
+              await updateRecord(editingTable, editingRecord.id, newData);
+              setEditingRecord(null);
+              if (onRecordChange) onRecordChange();
+            } catch (err) {
+              alert('保存に失敗しました');
+            }
+          }}
+        />
+      )}
 
       {!hasRecords ? (
         <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
@@ -34,9 +65,13 @@ const DayDetail = ({ date, records }) => {
           
           {/* Body Weight Records */}
           {records.bodyWeight && records.bodyWeight.map(record => (
-            <div key={`bw-${record.id}`} className="glass-card" style={cardStyle}>
-              <div style={headerStyle}>
+            <div key={`bw-${record.id}`} className="glass-card relative group" style={cardStyle}>
+              <div style={headerStyle} className="flex justify-between items-center">
                 <span style={{ color: 'var(--color-text-secondary)', fontWeight: 'bold' }}>体重</span>
+                <div className="flex gap-2">
+                  <button onClick={() => { setEditingRecord(record); setEditingTable('bodyWeightRecords'); }} className={actionBtnStyle}>✏️</button>
+                  <button onClick={() => handleDelete('bodyWeightRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                </div>
               </div>
               <div style={{ color: 'var(--color-text-primary)', fontSize: '1.2rem' }}>
                 {record.weight} kg
@@ -46,9 +81,13 @@ const DayDetail = ({ date, records }) => {
 
           {/* Ergo Records */}
           {records.ergo && records.ergo.map(record => (
-            <div key={`ergo-${record.id}`} className="glass-card" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-primary)'}}>
-              <div style={headerStyle}>
+            <div key={`ergo-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-primary)'}}>
+              <div style={headerStyle} className="flex justify-between items-center">
                 <span style={{ color: 'var(--color-accent-primary)', fontWeight: 'bold' }}>エルゴ ({record.type || 'UT2'})</span>
+                <div className="flex gap-2">
+                  <button onClick={() => { setEditingRecord(record); setEditingTable('ergoRecords'); }} className={actionBtnStyle}>✏️</button>
+                  <button onClick={() => handleDelete('ergoRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                </div>
               </div>
               <div style={gridStyle}>
                 <div style={itemStyle}><span style={labelStyle}>Time</span>{record.time}</div>
@@ -69,13 +108,16 @@ const DayDetail = ({ date, records }) => {
 
           {/* Strength Records */}
           {records.strength && records.strength.map(record => {
-            // record.exercise contains the ID (or custom string)
             const exerciseData = STRENGTH_EXERCISES[record.exercise];
             const exerciseName = exerciseData ? exerciseData.name : (record.exerciseName || record.exercise || '筋トレ');
             return (
-              <div key={`str-${record.id}`} className="glass-card" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-warning)'}}>
-                <div style={headerStyle}>
+              <div key={`str-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-warning)'}}>
+                <div style={headerStyle} className="flex justify-between items-center">
                   <span style={{ color: 'var(--color-accent-warning)', fontWeight: 'bold' }}>{exerciseName}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setEditingRecord(record); setEditingTable('strengthRecords'); }} className={actionBtnStyle}>✏️</button>
+                    <button onClick={() => handleDelete('strengthRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
                   {Array.isArray(record.sets) ? record.sets.map((set, idx) => {
@@ -104,9 +146,13 @@ const DayDetail = ({ date, records }) => {
 
           {/* Nutrition Records */}
           {records.nutrition && records.nutrition.map(record => (
-            <div key={`nut-${record.id}`} className="glass-card" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-success)'}}>
-              <div style={headerStyle}>
+            <div key={`nut-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-success)'}}>
+              <div style={headerStyle} className="flex justify-between items-center">
                 <span style={{ color: 'var(--color-accent-success)', fontWeight: 'bold' }}>食事 ({record.mealType})</span>
+                <div className="flex gap-2">
+                  <button onClick={() => { setEditingRecord(record); setEditingTable('nutritionRecords'); }} className={actionBtnStyle}>✏️</button>
+                  <button onClick={() => handleDelete('nutritionRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                </div>
               </div>
               <div style={gridStyle}>
                 <div style={itemStyle}><span style={labelStyle}>Cal</span>{record.calories}</div>
@@ -157,5 +203,7 @@ const labelStyle = {
   fontSize: '0.8rem',
   color: 'var(--color-text-muted)'
 };
+
+const actionBtnStyle = "w-6 h-6 rounded-md bg-[var(--color-surface-600)] text-xs flex items-center justify-center border-none cursor-pointer hover:bg-[var(--color-surface-500)] opacity-80 hover:opacity-100 transition-all";
 
 export default DayDetail;

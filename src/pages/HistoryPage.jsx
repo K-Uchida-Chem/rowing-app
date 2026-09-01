@@ -116,6 +116,10 @@ const HistoryPage = () => {
       <DayDetail 
         date={selectedDate}
         records={dayRecords}
+        onRecordChange={() => {
+          fetchMonthData(currentMonth);
+          fetchDayRecords(selectedDate, searchQuery, activeFilter);
+        }}
       />
     </div>
   );
