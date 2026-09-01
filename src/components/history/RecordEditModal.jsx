@@ -42,6 +42,14 @@ export default function RecordEditModal({ record, tableName, onClose, onSave }) 
 
   const renderErgoForm = () => (
     <>
+      <div className="mb-3">
+        <label className={labelStyle}>Session</label>
+        <select value={formData.session || 'AM'} onChange={(e) => handleChange(e, 'session')} className={inputStyle}>
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+          <option value="Night">Night</option>
+        </select>
+      </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div><label className={labelStyle}>Time</label><input type="text" value={formData.time || ''} onChange={(e) => handleChange(e, 'time')} className={inputStyle} /></div>
         <div><label className={labelStyle}>Distance (m)</label><input type="number" value={formData.distance || ''} onChange={(e) => handleChange(e, 'distance')} className={inputStyle} /></div>
@@ -60,10 +68,20 @@ export default function RecordEditModal({ record, tableName, onClose, onSave }) 
     
     return (
       <>
-        <div className="mb-4">
-          <label className={labelStyle}>種目</label>
-          <div className="text-[var(--color-text-primary)] font-bold mb-2">
-             {STRENGTH_EXERCISES[formData.exercise]?.name || formData.exercise || '筋トレ'}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className={labelStyle}>Session</label>
+            <select value={formData.session || 'AM'} onChange={(e) => handleChange(e, 'session')} className={inputStyle}>
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+              <option value="Night">Night</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelStyle}>種目</label>
+            <div className="text-[var(--color-text-primary)] font-bold mb-2 mt-2">
+               {STRENGTH_EXERCISES[formData.exercise]?.name || formData.exercise || '筋トレ'}
+            </div>
           </div>
         </div>
 

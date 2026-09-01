@@ -5,6 +5,7 @@ import { addStrengthRecord, calculateEstimated1RM } from '../../db/database';
 export default function StrengthLogger() {
   const [selectedDay, setSelectedDay] = useState(1);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [session, setSession] = useState('AM');
   const [phase, setPhase] = useState('hypertrophy');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -100,6 +101,7 @@ export default function StrengthLogger() {
           promises.push(
             addStrengthRecord({
               date,
+              session,
               exercise: exercise.id,
               day: selectedDay,
               sets: setsArray,
@@ -170,13 +172,24 @@ export default function StrengthLogger() {
             <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
               日付
             </label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => { setDate(e.target.value); setSaved(false); }}
-              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)]"
-              id="strength-date"
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => { setDate(e.target.value); setSaved(false); }}
+                className="w-2/3 px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)]"
+                id="strength-date"
+              />
+              <select
+                value={session}
+                onChange={(e) => { setSession(e.target.value); setSaved(false); }}
+                className="w-1/3 px-2 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] cursor-pointer appearance-none text-center"
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+                <option value="Night">Night</option>
+              </select>
+            </div>
           </div>
           <div>
             <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">

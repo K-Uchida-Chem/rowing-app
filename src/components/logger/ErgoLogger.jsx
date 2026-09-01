@@ -6,6 +6,7 @@ import { extractErgoData, extractWatchData, hasApiKey } from '../../services/ocr
 // Time formatting helper: 1523 -> 1:52.3, 30000 -> 30:00.0
 const formatRowingTime = (val) => {
   if (!val) return '';
+  if (val.includes(':') || val.includes('.')) return val; // ユーザーが明示的に打った場合は自動変換をスキップ
   const digits = val.replace(/\D/g, '');
   if (!digits) return val;
   
@@ -51,9 +52,11 @@ export default function ErgoLogger() {
     maxHR: '',
     calories: '',
     rpe: 5,
+    rpe: 5,
     memo: '',
     videoUrl: '',
     intervals: [],
+    session: 'AM', // AM, PM, or Night
   });
 
   useEffect(() => {
@@ -147,14 +150,15 @@ export default function ErgoLogger() {
     try {
       await addErgoRecord({
         date: form.date,
+        session: form.session,
         type: selectedType?.zone || 'other',
-        zone: selectedType?.zone || '',
+        zone: selectedType?.zone || null,
         time: form.time,
         distance: form.distance ? Number(form.distance) : null,
         split: form.split,
         watts: form.watts ? Number(form.watts) : null,
         rate: form.rate ? Number(form.rate) : null,
-        avgHR: form.avgHR ? Number(form.avgHR) : null,
+        hr: form.avgHR ? Number(form.avgHR) : null,
         maxHR: form.maxHR ? Number(form.maxHR) : null,
         calories: form.calories ? Number(form.calories) : null,
         rpe: form.rpe,
@@ -312,13 +316,24 @@ export default function ErgoLogger() {
             <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
               日付
             </label>
-            <input
-              type="date"
-              value={form.date}
-              onChange={(e) => updateField('date', e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] focus:ring-1 focus:ring-[rgba(56,189,248,0.15)]"
-              id="ergo-date"
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={form.date}
+                onChange={(e) => updateField('date', e.target.value)}
+                className="w-2/3 px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)]"
+                id="ergo-date"
+              />
+              <select
+                value={form.session}
+                onChange={(e) => updateField('session', e.target.value)}
+                className="w-1/3 px-2 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] cursor-pointer appearance-none text-center"
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+                <option value="Night">Night</option>
+              </select>
+            </div>
           </div>
           <div>
             <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
@@ -378,14 +393,13 @@ export default function ErgoLogger() {
       </div>
 
       {/* ─── Interval Details ────────────────────────────── */}
-      {['at', 'tr', 'an'].includes(form.type) && (
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-base">⏱️</span>
-            <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-              インターバル詳細 (任意)
-            </h3>
-          </div>
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">⏱️</span>
+          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+            インターバル詳細 (任意)
+          </h3>
+        </div>
           <div className="space-y-3">
             {form.intervals.map((interval, index) => (
               <div key={index} className="flex items-end gap-2 p-3 bg-[var(--color-surface-700)] rounded-xl border border-[rgba(56,189,248,0.08)]">
@@ -437,7 +451,6 @@ export default function ErgoLogger() {
             </button>
           </div>
         </div>
-      )}
 
       {/* ─── Heart Rate Fields ───────────────────────────── */}
       <div className="glass-card p-4">

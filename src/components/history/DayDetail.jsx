@@ -22,6 +22,31 @@ const DayDetail = ({ date, records, onRecordChange }) => {
     (records.bodyWeight && records.bodyWeight.length > 0)
   );
 
+  const getSessionBadge = (session) => {
+    if (!session) return null;
+    const colors = {
+      AM: 'bg-orange-500/20 text-orange-300',
+      PM: 'bg-blue-500/20 text-blue-300',
+      Night: 'bg-purple-500/20 text-purple-300'
+    };
+    const colorClass = colors[session] || 'bg-gray-500/20 text-gray-300';
+    return <span className={`px-2 py-0.5 rounded text-[10px] font-bold ml-2 ${colorClass}`}>{session}</span>;
+  };
+
+  const MemoSection = ({ memo }) => {
+    if (!memo) return null;
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)]">
+        <div className="text-[10px] text-[var(--color-text-muted)] font-bold mb-1 flex items-center gap-1">
+          📝 振り返り
+        </div>
+        <div className="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">
+          {memo}
+        </div>
+      </div>
+    );
+  };
+
   const handleDelete = async (tableName, id) => {
     if (window.confirm('この記録を削除してもよろしいですか？')) {
       try {
@@ -83,7 +108,10 @@ const DayDetail = ({ date, records, onRecordChange }) => {
           {records.ergo && records.ergo.map(record => (
             <div key={`ergo-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-primary)'}}>
               <div style={headerStyle} className="flex justify-between items-center">
-                <span style={{ color: 'var(--color-accent-primary)', fontWeight: 'bold' }}>エルゴ ({record.type || 'UT2'})</span>
+                <div>
+                  <span style={{ color: 'var(--color-accent-primary)', fontWeight: 'bold' }}>エルゴ ({record.type || 'UT2'})</span>
+                  {getSessionBadge(record.session)}
+                </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setEditingRecord(record); setEditingTable('ergoRecords'); }} className={actionBtnStyle}>✏️</button>
                   <button onClick={() => handleDelete('ergoRecords', record.id)} className={actionBtnStyle}>🗑️</button>
@@ -98,11 +126,34 @@ const DayDetail = ({ date, records, onRecordChange }) => {
                 {record.hr && <div style={itemStyle}><span style={labelStyle}>HR</span>{record.hr}</div>}
                 {record.rpe && <div style={itemStyle}><span style={labelStyle}>RPE</span>{record.rpe}</div>}
               </div>
-              {record.memo && (
-                <div style={{ marginTop: '0.5rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                  {record.memo}
+
+              {/* Intervals */}
+              {record.intervals && record.intervals.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-[10px] text-[var(--color-text-muted)] font-bold mb-1">⏱️ インターバル</div>
+                  <div className="space-y-1">
+                    {record.intervals.map((interval, i) => (
+                      <div key={i} className="flex justify-between items-center px-2 py-1.5 bg-[var(--color-surface-600)] rounded-md text-xs">
+                        <span className="text-[var(--color-text-secondary)] w-6">{i+1}</span>
+                        <span className="text-[var(--color-text-primary)] flex-1 text-center">{interval.distance}m</span>
+                        <span className="text-[var(--color-text-primary)] flex-1 text-center font-mono">{interval.time}</span>
+                        <span className="text-[var(--color-accent-primary)] flex-1 text-right font-mono">{interval.split}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Video/Image Link */}
+              {record.videoUrl && (
+                <div className="mt-3">
+                  <a href={record.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[rgba(56,189,248,0.1)] text-[var(--color-accent-primary)] text-xs font-bold hover:bg-[rgba(56,189,248,0.2)] transition-colors no-underline">
+                    🔗 参考動画 / 画像リンク
+                  </a>
+                </div>
+              )}
+
+              <MemoSection memo={record.memo} />
             </div>
           ))}
 
@@ -113,7 +164,10 @@ const DayDetail = ({ date, records, onRecordChange }) => {
             return (
               <div key={`str-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-warning)'}}>
                 <div style={headerStyle} className="flex justify-between items-center">
-                  <span style={{ color: 'var(--color-accent-warning)', fontWeight: 'bold' }}>{exerciseName}</span>
+                  <div>
+                    <span style={{ color: 'var(--color-accent-warning)', fontWeight: 'bold' }}>{exerciseName}</span>
+                    {getSessionBadge(record.session)}
+                  </div>
                   <div className="flex gap-2">
                     <button onClick={() => { setEditingRecord(record); setEditingTable('strengthRecords'); }} className={actionBtnStyle}>✏️</button>
                     <button onClick={() => handleDelete('strengthRecords', record.id)} className={actionBtnStyle}>🗑️</button>
@@ -135,11 +189,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
                     </div>
                   )}
                 </div>
-                {record.memo && (
-                  <div style={{ marginTop: '0.5rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                    {record.memo}
-                  </div>
-                )}
+                <MemoSection memo={record.memo} />
               </div>
             );
           })}
@@ -160,11 +210,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
                 <div style={itemStyle}><span style={labelStyle}>Fat</span>{record.fat}g</div>
                 <div style={itemStyle}><span style={labelStyle}>Carbs</span>{record.carbs}g</div>
               </div>
-              {record.memo && (
-                <div style={{ marginTop: '0.5rem', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                  {record.memo}
-                </div>
-              )}
+              <MemoSection memo={record.memo} />
             </div>
           ))}
 
