@@ -10,6 +10,7 @@ export default function ApiKeySettings({ isOpen, onClose }) {
   const [key, setKey] = useState(getApiKey());
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const fileInputRef = useRef(null);
 
   if (!isOpen) return null;
 
@@ -26,8 +27,6 @@ export default function ApiKeySettings({ isOpen, onClose }) {
     setKey('');
     setApiKey('');
   };
-
-  const fileInputRef = useRef(null);
   
   const handleExport = async () => {
     try {
