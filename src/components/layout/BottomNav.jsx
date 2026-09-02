@@ -1,16 +1,7 @@
 import { useState } from 'react';
+import { LayoutDashboard, Activity, BarChart2, History, Settings } from 'lucide-react';
 
 const navItems = [
-  {
-    id: 'home',
-    label: 'Home',
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
   { id: 'home', icon: <LayoutDashboard size={20} />, label: 'Home' },
   { id: 'logger', icon: <Activity size={20} />, label: 'Logger' },
   { id: 'analytics', icon: <BarChart2 size={20} />, label: 'Analytics' },
