@@ -229,6 +229,33 @@ export async function getErgoRecordsByRange(startDate, endDate) {
 }
 
 /**
+ * 自己ベストの2000m TT記録を取得する
+ */
+export async function getBest2kTT() {
+  const tts = await db.ergoRecords
+    .filter(record => record.type === '2kTT' && record.time)
+    .toArray();
+    
+  if (tts.length === 0) return null;
+  
+  // time format is like "7:00.0" or "6:58.2", we sort by string since it's MM:SS.0
+  // Note: this simple sort works as long as minutes are single digit (which they are for 2k)
+  tts.sort((a, b) => {
+    // Convert to seconds for accurate comparison
+    const parseToSecs = (timeStr) => {
+      const parts = timeStr.split(':');
+      if (parts.length === 2) {
+        return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+      }
+      return 9999;
+    };
+    return parseToSecs(a.time) - parseToSecs(b.time);
+  });
+  
+  return tts[0];
+}
+
+/**
  * 指定種目の筋トレ推定1RM推移を取得する（グラフ用）
  */
 export async function getStrength1RMHistory(exercise) {

@@ -16,6 +16,8 @@ export default function ConditionLogger() {
   const [windDirection, setWindDirection] = useState('none');
   const [windSpeed, setWindSpeed] = useState('');
   const [condition, setCondition] = useState('');
+  const [fatigueScore, setFatigueScore] = useState(3);
+  const [restingHR, setRestingHR] = useState('');
   const [sleepHours, setSleepHours] = useState('');
   const [overallRPE, setOverallRPE] = useState(5);
   const [memo, setMemo] = useState('');
@@ -32,6 +34,8 @@ export default function ConditionLogger() {
         windDirection,
         windSpeed,
         condition,
+        fatigueScore,
+        restingHR: restingHR ? Number(restingHR) : null,
         sleepHours: sleepHours ? Number(sleepHours) : null,
         overallRPE,
         memo,
@@ -50,7 +54,10 @@ export default function ConditionLogger() {
     setWeather('');
     setWindDirection('none');
     setWindSpeed('');
+    setWindSpeed('');
     setCondition('');
+    setFatigueScore(3);
+    setRestingHR('');
     setSleepHours('');
     setOverallRPE(5);
     setMemo('');
@@ -174,18 +181,55 @@ export default function ConditionLogger() {
           </div>
         </div>
 
-        <div>
+        <div className="mb-4">
           <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
-            睡眠時間 (時間)
+            主観的疲労度 (1:絶好調 〜 5:激しい疲労)
           </label>
-          <input
-            type="number"
-            step="0.5"
-            value={sleepHours}
-            onChange={(e) => setSleepHours(e.target.value)}
-            placeholder="7.5"
-            className="w-32 px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] tabular-nums"
-          />
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map(score => (
+              <button
+                key={score}
+                onClick={() => setFatigueScore(score)}
+                className={`
+                  flex-1 py-2 rounded-xl border text-sm font-bold cursor-pointer transition-colors duration-200
+                  ${fatigueScore === score
+                    ? 'bg-[rgba(56,189,248,0.12)] border-[var(--color-accent-primary)] text-[var(--color-accent-primary)]'
+                    : 'bg-transparent border-[rgba(56,189,248,0.06)] text-[var(--color-text-secondary)] hover:border-[rgba(56,189,248,0.15)]'
+                  }
+                `}
+              >
+                {score}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
+              安静時心拍数 (bpm)
+            </label>
+            <input
+              type="number"
+              value={restingHR}
+              onChange={(e) => setRestingHR(e.target.value)}
+              placeholder="例: 45"
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] tabular-nums"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
+              睡眠時間 (h)
+            </label>
+            <input
+              type="number"
+              step="0.5"
+              value={sleepHours}
+              onChange={(e) => setSleepHours(e.target.value)}
+              placeholder="例: 7.5"
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] tabular-nums"
+            />
+          </div>
         </div>
       </div>
 

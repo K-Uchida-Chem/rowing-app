@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Activity, Flame, Ruler, Timer, ArrowUpRight } from 'lucide-react';
-import { NUTRITION_TARGETS, STRENGTH_EXERCISES } from '../../db/masterData';
-import db from '../../db/database';
+import { Activity, HeartPulse, Brain, Bed, Scale, Trophy } from 'lucide-react';
+import { STRENGTH_EXERCISES } from '../../db/masterData';
+import db, { getBest2kTT } from '../../db/database';
 
 /**
- * Today's summary stats — shows nutrition progress and recent training stats.
+ * Today's summary stats — Shows objective, subjective, and physical data.
  * Shows live data from IndexedDB.
  */
 export default function TodayStats() {
   const [data, setData] = useState({
     ergo: [],
     strength: [],
-    nutrition: [],
+    condition: null,
     bodyWeight: null,
-    sleepHours: null,
+    best2kTT: null,
   });
 
   useEffect(() => {
@@ -21,33 +21,21 @@ export default function TodayStats() {
       const today = new Date().toISOString().split('T')[0];
       const ergo = await db.ergoRecords.where('date').equals(today).toArray();
       const strength = await db.strengthRecords.where('date').equals(today).toArray();
-      const nutrition = await db.nutritionRecords.where('date').equals(today).toArray();
       const bodyWeightList = await db.bodyWeightRecords.where('date').equals(today).toArray();
       const conditionList = await db.conditionRecords.where('date').equals(today).toArray();
+      const bestTT = await getBest2kTT();
       
       setData({
         ergo,
         strength,
-        nutrition,
+        condition: conditionList.length > 0 ? conditionList[0] : null,
         bodyWeight: bodyWeightList.length > 0 ? bodyWeightList[0].weight : null,
-        sleepHours: conditionList.length > 0 ? conditionList[0].sleepHours : null,
+        best2kTT: bestTT,
       });
     };
     
     fetchTodayData();
   }, []);
-
-  // Calculate nutrition totals
-  const nutritionToday = data.nutrition.reduce(
-    (acc, curr) => {
-      acc.calories += curr.calories || 0;
-      acc.protein += curr.protein || 0;
-      acc.fat += curr.fat || 0;
-      acc.carbs += curr.carbs || 0;
-      return acc;
-    },
-    { calories: 0, protein: 0, fat: 0, carbs: 0 }
-  );
 
   // Strength details logic: group by exercise and find max weight
   const strengthSummary = data.strength.reduce((acc, curr) => {
@@ -61,157 +49,97 @@ export default function TodayStats() {
     return acc;
   }, {});
 
-  const targets = NUTRITION_TARGETS;
-
-  const macros = [
-    {
-      label: 'Calories',
-      current: nutritionToday.calories,
-      target: targets.calories,
-      unit: 'kcal',
-      color: '#38bdf8',
-      gradient: 'linear-gradient(90deg, #38bdf8, #818cf8)',
-    },
-    {
-      label: 'Protein',
-      current: nutritionToday.protein,
-      target: targets.protein,
-      unit: 'g',
-      color: '#f87171',
-      gradient: 'linear-gradient(90deg, #f87171, #fb923c)',
-    },
-    {
-      label: 'Fat',
-      current: nutritionToday.fat,
-      target: targets.fat,
-      unit: 'g',
-      color: '#fbbf24',
-      gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)',
-    },
-    {
-      label: 'Carbs',
-      current: nutritionToday.carbs,
-      target: targets.carbs,
-      unit: 'g',
-      color: '#34d399',
-      gradient: 'linear-gradient(90deg, #34d399, #10b981)',
-    },
-  ];
-
-  // Calculate ergo totals for stats
-  const ergoStats = data.ergo.reduce((acc, curr) => {
-    acc.distance += Number(curr.distance) || 0;
-    if (curr.time) {
-      const parts = curr.time.split(':');
-      let secs = 0;
-      if (parts.length === 3) {
-        secs = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
-      } else if (parts.length === 2) {
-        secs = parseInt(parts[0]) * 60 + parseFloat(parts[1]);
-      }
-      acc.timeSeconds += secs;
+  // Calculate 2k TT Diff
+  const today2k = data.ergo.find(r => r.type === '2kTT');
+  let ttDiff = null;
+  if (today2k && data.best2kTT && today2k.time) {
+    const parseSecs = (str) => {
+      if (!str) return 0;
+      const parts = str.split(':');
+      if (parts.length === 2) return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+      if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+      return 0;
+    };
+    const todaySecs = parseSecs(today2k.time);
+    const bestSecs = parseSecs(data.best2kTT.time);
+    
+    if (todaySecs > 0 && bestSecs > 0 && today2k.id !== data.best2kTT.id) {
+      const diff = todaySecs - bestSecs;
+      ttDiff = {
+        diffStr: diff > 0 ? `+${diff.toFixed(1)}s` : `${diff.toFixed(1)}s`,
+        isPB: diff < 0,
+        bestTime: data.best2kTT.time
+      };
+    } else if (today2k.id === data.best2kTT.id) {
+      ttDiff = { diffStr: 'New PB!', isPB: true, bestTime: today2k.time };
     }
-    return acc;
-  }, { distance: 0, timeSeconds: 0 });
+  }
 
-  const formatTime = (totalSeconds) => {
-    if (!totalSeconds) return '0:00';
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = Math.floor(totalSeconds % 60);
-    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Mock TSS based on time/distance, or just use 0 if none
-  const calculateTSS = () => {
-    // Rough estimate: 1 hour of UT2 is roughly 40-50 TSS
-    if (ergoStats.timeSeconds === 0) return 0;
-    return Math.round((ergoStats.timeSeconds / 3600) * 50);
-  };
-
-  const stats = {
-    time: formatTime(ergoStats.timeSeconds),
-    distance: ergoStats.distance,
-    calories: nutritionToday.calories,
-    tss: calculateTSS()
-  };
+  // Combine Memos
+  const memos = [];
+  if (data.condition?.memo) memos.push(`【体調】${data.condition.memo}`);
+  data.ergo.forEach((r, i) => { if (r.memo) memos.push(`【エルゴ${i+1}】${r.memo}`); });
+  data.strength.forEach((r, i) => { if (r.memo) memos.push(`【ウェイト${i+1}】${r.memo}`); });
 
   return (
-    <div className="glass-card p-4">
-      <div className="flex items-center justify-between mb-6 border-b border-[var(--color-surface-600)] pb-2">
-        <div className="flex items-center gap-2">
-          <Activity size={16} className="text-[var(--color-text-secondary)]" />
+    <div className="space-y-4">
+      {/* 1. 客観データ (Objective Data) */}
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 mb-5 border-b border-[var(--color-surface-600)] pb-2">
+          <Activity size={16} className="text-[var(--color-accent-primary)]" />
           <h2 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
-            Today's Summary
+            Objective Data (客観データ)
           </h2>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-6 mb-8 mt-2 px-2">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
-            <Timer size={12} /> Total Time
+        <div className="grid grid-cols-2 gap-4 mb-5 px-1">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+              <HeartPulse size={12} /> 安静時心拍数
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+                {data.condition?.restingHR || '--'}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">bpm</span>
+            </div>
           </div>
-          <div className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
-            {stats.time}
-          </div>
+
+          {today2k && ttDiff && (
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+                <Trophy size={12} /> 2k TT 差分
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className={`text-2xl font-bold font-mono tracking-tighter leading-none ${ttDiff.isPB ? 'text-[var(--color-accent-success)]' : 'text-[var(--color-accent-warning)]'}`}>
+                  {ttDiff.diffStr}
+                </span>
+                <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase ml-1">
+                  (PB: {ttDiff.bestTime})
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
-            <Ruler size={12} /> Distance
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-accent-primary)] leading-none">
-              {(stats.distance / 1000).toFixed(1)}
-            </span>
-            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">km</span>
-          </div>
-        </div>
+        <div className="space-y-3">
+          {data.ergo.length === 0 && Object.keys(strengthSummary).length === 0 && (
+             <p className="text-xs text-[var(--color-text-muted)]">本日のトレーニング記録はありません。</p>
+          )}
 
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
-            <Flame size={12} /> Calories
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
-              {stats.calories}
-            </span>
-            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">kcal</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
-            <ArrowUpRight size={12} /> Workload
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
-              {stats.tss}
-            </span>
-            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">TSS</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Detailed Training Summary */}
-      {(data.ergo.length > 0 || Object.keys(strengthSummary).length > 0) && (
-        <div className="mb-5 space-y-3">
-          <p className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider">
-            トレーニング内容
-          </p>
-          
           {data.ergo.length > 0 && (
             <div className="p-3 rounded-xl bg-[var(--color-surface-600)] border border-[rgba(226,232,240,0.08)]">
-              <p className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-primary)] mb-1">エルゴ</p>
+              <p className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-primary)] mb-2">エルゴ</p>
               {data.ergo.map((r, i) => (
-                <div key={i} className="text-xs text-[var(--color-text-primary)] mt-1">
-                  <span className="inline-block w-8 text-[var(--color-text-muted)]">{r.type}</span>
-                  {r.time && r.distance ? `${r.time} (${r.distance}m)` : (r.time || `${r.distance}m`)}
+                <div key={i} className="text-xs text-[var(--color-text-secondary)] mt-1.5 flex flex-wrap gap-x-2.5 items-center">
+                  <span className="font-bold text-[var(--color-text-primary)] inline-block min-w-[36px]">{r.type}</span>
+                  {r.distance && <span>{r.distance}m</span>}
+                  {r.time && <span>{r.time}</span>}
+                  {r.split && <span>({r.split}/500m)</span>}
+                  {r.rate && <span>SR{r.rate}</span>}
                   {r.intervals && r.intervals.length > 0 && (
-                    <span className="text-[var(--color-text-secondary)] ml-1">
-                      {` - ${r.intervals.length} intervals`}
+                    <span className="text-[10px] text-[var(--color-text-muted)] ml-auto">
+                      {r.intervals.length} sets
                     </span>
                   )}
                 </div>
@@ -221,56 +149,91 @@ export default function TodayStats() {
 
           {Object.keys(strengthSummary).length > 0 && (
             <div className="p-3 rounded-xl bg-[var(--color-surface-600)] border border-[rgba(226,232,240,0.08)]">
-              <p className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-primary)] mb-1">ウェイト</p>
-              {Object.entries(strengthSummary).map(([exerciseId, stats], i) => {
+              <p className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-primary)] mb-2">ウェイト</p>
+              {Object.entries(strengthSummary).map(([exerciseId, s], i) => {
                 const exerciseName = STRENGTH_EXERCISES[exerciseId]?.name || exerciseId;
                 return (
-                  <div key={i} className="text-xs text-[var(--color-text-primary)] mt-1 flex justify-between">
+                  <div key={i} className="text-xs text-[var(--color-text-primary)] mt-1.5 flex justify-between">
                     <span>{exerciseName}</span>
-                    <span className="text-[var(--color-text-secondary)]">{stats.maxWeight}kg / {stats.sets} sets</span>
+                    <span className="text-[var(--color-text-secondary)]">{s.maxWeight}kg / {s.sets} sets</span>
                   </div>
                 );
               })}
             </div>
           )}
         </div>
-      )}
-
-      {/* PFC Progress */}
-      <div className="space-y-3">
-        <p className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider">
-          栄養バランス（PFC）
-        </p>
-        {macros.map((macro) => {
-          const pct = Math.min(100, Math.round((macro.current / macro.target) * 100));
-          return (
-            <div key={macro.label}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-                  {macro.label}
-                </span>
-                <span className="text-xs text-[var(--color-text-muted)] tabular-nums">
-                  <span className="font-bold text-[var(--color-text-primary)]">{macro.current.toLocaleString()}</span>
-                  {' / '}
-                  {macro.target.toLocaleString()} {macro.unit}
-                  <span className="ml-1.5 text-[10px]" style={{ color: macro.color }}>
-                    {pct}%
-                  </span>
-                </span>
-              </div>
-              <div className="progress-bar">
-                <div
-                  className="progress-bar-fill"
-                  style={{
-                    width: `${pct}%`,
-                    background: macro.gradient,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
       </div>
+
+      {/* 2. 主観データ (Subjective Data) */}
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 mb-5 border-b border-[var(--color-surface-600)] pb-2">
+          <Brain size={16} className="text-[var(--color-accent-purple)]" />
+          <h2 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
+            Subjective Data (主観データ)
+          </h2>
+        </div>
+        
+        <div className="flex flex-col mb-5 px-1">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+            疲労度スコア
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+              {data.condition?.fatigueScore || '--'}
+            </span>
+            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">/ 5</span>
+          </div>
+        </div>
+
+        <div className="px-1">
+          <div className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-2">
+            振り返り・感想
+          </div>
+          <div className="text-xs text-[var(--color-text-secondary)] leading-relaxed space-y-2 bg-[var(--color-surface-700)] p-3 rounded-xl border border-[rgba(226,232,240,0.04)]">
+            {memos.length > 0 ? (
+              memos.map((m, i) => <p key={i}>{m}</p>)
+            ) : (
+              <p className="text-[var(--color-text-muted)] text-center py-2">記録がありません</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. 身体データ (Physical Data) */}
+      <div className="glass-card p-4">
+        <div className="flex items-center gap-2 mb-5 border-b border-[var(--color-surface-600)] pb-2">
+          <Bed size={16} className="text-[var(--color-accent-success)]" />
+          <h2 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
+            Physical Data (身体データ)
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 px-1">
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+              <Bed size={12} /> 睡眠時間
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+                {data.condition?.sleepHours || '--'}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">h</span>
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+              <Scale size={12} /> 体重
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+                {data.bodyWeight || '--'}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">kg</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
 }
