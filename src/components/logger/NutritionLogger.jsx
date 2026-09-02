@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { Scale, Utensils, Save, FileImage } from 'lucide-react';
 import { NUTRITION_TARGETS } from '../../db/masterData';
 import { addNutritionRecord, addBodyWeightRecord } from '../../db/database';
 
 const MEAL_TYPES = [
-  { id: 'breakfast', label: '朝食', emoji: '🌅' },
-  { id: 'lunch', label: '昼食', emoji: '☀️' },
-  { id: 'dinner', label: '夕食', emoji: '🌙' },
-  { id: 'snack', label: '間食/補食', emoji: '🍌' },
-  { id: 'total', label: '1日合計', emoji: '📊' },
+  { id: 'breakfast', label: '朝食' },
+  { id: 'lunch', label: '昼食' },
+  { id: 'dinner', label: '夕食' },
+  { id: 'snack', label: '間食/補食' },
+  { id: 'total', label: '1日合計' },
 ];
 
 export default function NutritionLogger() {
@@ -15,7 +16,9 @@ export default function NutritionLogger() {
   const [bodyWeight, setBodyWeight] = useState('');
   const [mealType, setMealType] = useState('total');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const fileInputRef = useRef(null);
 
   const [nutrition, setNutrition] = useState({
     calories: '',
@@ -29,7 +32,6 @@ export default function NutritionLogger() {
     setSaved(false);
   };
 
-  // Calculate progress percentages
   const targets = NUTRITION_TARGETS;
   const macroFields = [
     {
@@ -71,7 +73,6 @@ export default function NutritionLogger() {
     try {
       const promises = [];
 
-      // Save body weight if entered
       if (bodyWeight) {
         promises.push(
           addBodyWeightRecord({
@@ -81,7 +82,6 @@ export default function NutritionLogger() {
         );
       }
 
-      // Save nutrition if any field has data
       if (nutrition.calories || nutrition.protein || nutrition.fat || nutrition.carbs) {
         promises.push(
           addNutritionRecord({
@@ -113,11 +113,10 @@ export default function NutritionLogger() {
 
   return (
     <div className="space-y-4" id="nutrition-logger">
-      {/* ─── Body Weight ─────────────────────────────────── */}
       <div className="glass-card p-4" id="body-weight-section">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">⚖️</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <Scale size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
             体重記録
           </h3>
         </div>
@@ -152,12 +151,11 @@ export default function NutritionLogger() {
         </div>
       </div>
 
-      {/* ─── Meal Type Selector ──────────────────────────── */}
       <div className="glass-card p-4" id="meal-type-section">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">🍽️</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-            食事・栄養記録
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <Utensils size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
+            食事データ
           </h3>
         </div>
 
@@ -178,13 +176,12 @@ export default function NutritionLogger() {
                   }
                 `}
               >
-                {meal.emoji} {meal.label}
+                {meal.label}
               </button>
             );
           })}
         </div>
 
-        {/* ─── PFC Input Fields ───────────────────────────── */}
         <div className="space-y-4">
           {macroFields.map((macro) => {
             const value = nutrition[macro.key];
@@ -235,7 +232,6 @@ export default function NutritionLogger() {
           })}
         </div>
 
-        {/* ─── PFC Ratio Ring ────────────────────────────── */}
         {(nutrition.protein || nutrition.fat || nutrition.carbs) && (
           <PFCRatio
             protein={Number(nutrition.protein) || 0}
@@ -245,7 +241,24 @@ export default function NutritionLogger() {
         )}
       </div>
 
-      {/* ─── Action Buttons ──────────────────────────────── */}
+      <div className="flex gap-3">
+        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" />
+        <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="w-full px-4 py-3 rounded-xl text-xs font-bold text-[var(--color-text-secondary)] bg-[rgba(255,255,255,0.03)] border border-[var(--color-surface-600)] hover:bg-[rgba(255,255,255,0.06)] hover:border-[var(--color-surface-500)] disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+          >
+            {isUploading ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-[var(--color-accent-primary)] border-t-transparent rounded-full animate-spin" />
+                アップロード中...
+              </span>
+            ) : (
+              <><FileImage size={16} /> 料理の写真をアップロード</>
+            )}
+        </button>
+      </div>
+
       <div className="flex gap-3">
         <button
           onClick={handleReset}
@@ -276,7 +289,9 @@ export default function NutritionLogger() {
           ) : saved ? (
             '✓ 保存しました'
           ) : (
-            '💾 記録を保存'
+            <span className="flex items-center justify-center gap-2">
+              <Save size={16} /> 記録を保存
+            </span>
           )}
         </button>
       </div>

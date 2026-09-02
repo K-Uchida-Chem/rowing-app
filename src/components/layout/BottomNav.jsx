@@ -11,37 +11,10 @@ const navItems = [
       </svg>
     ),
   },
-  {
-    id: 'logger',
-    label: 'Logger',
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'analytics',
-    label: 'Analytics',
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
-      </svg>
-    ),
-  },
-  {
-    id: 'history',
-    label: 'History',
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
+  { id: 'home', icon: <LayoutDashboard size={20} />, label: 'Home' },
+  { id: 'logger', icon: <Activity size={20} />, label: 'Logger' },
+  { id: 'analytics', icon: <BarChart2 size={20} />, label: 'Analytics' },
+  { id: 'history', icon: <History size={20} />, label: 'History' },
 ];
 
 export default function BottomNav({ activeTab, onTabChange, onOpenSettings }) {
@@ -55,32 +28,12 @@ export default function BottomNav({ activeTab, onTabChange, onOpenSettings }) {
               key={item.id}
               id={`nav-${item.id}`}
               onClick={() => onTabChange(item.id)}
-              className={`
-                flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl
-                transition-all duration-200 ease-out border-none bg-transparent
-                cursor-pointer min-w-[60px]
-                ${isActive
-                  ? 'text-[var(--color-accent-primary)]'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
-                }
-              `}
-              style={{
-                transform: isActive ? 'scale(1.05)' : 'scale(1)',
-              }}
+              className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-200 ease-out border-none bg-transparent cursor-pointer min-w-[60px] group"
             >
-              <div className={`
-                relative p-1.5 rounded-xl transition-all duration-200
-                ${isActive ? 'bg-[rgba(56,189,248,0.1)]' : ''}
-              `}>
+              <div className={`text-lg mb-1 transition-transform duration-200 ${isActive ? 'scale-110 text-[var(--color-accent-primary)]' : 'opacity-70 group-hover:scale-110 group-hover:opacity-100'}`}>
                 {item.icon}
-                {isActive && (
-                  <div
-                    className="absolute -bottom-0.5 left-1/2 w-1 h-1 rounded-full bg-[var(--color-accent-primary)] pulse-dot"
-                    style={{ transform: 'translateX(-50%)' }}
-                  />
-                )}
               </div>
-              <span className="text-[10px] font-medium tracking-wide">
+              <span className={`text-[10px] font-medium transition-colors duration-200 ${isActive ? 'text-[var(--color-accent-primary)]' : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]'}`}>
                 {item.label}
               </span>
             </button>
@@ -89,19 +42,14 @@ export default function BottomNav({ activeTab, onTabChange, onOpenSettings }) {
         {/* Settings Button */}
         <button
           onClick={onOpenSettings}
-          className="
-            flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl
-            transition-all duration-200 ease-out border-none bg-transparent
-            cursor-pointer min-w-[60px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]
-          "
+          className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-200 ease-out border-none bg-transparent cursor-pointer min-w-[60px] group"
         >
-          <div className="relative p-1.5 rounded-xl transition-all duration-200">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
+          <div className="text-lg mb-1 opacity-70 group-hover:scale-110 group-hover:opacity-100 transition-all duration-200">
+            <Settings size={20} />
           </div>
-          <span className="text-[10px] font-medium tracking-wide">Settings</span>
+          <span className="text-[10px] font-medium text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)] transition-colors duration-200">
+            Settings
+          </span>
         </button>
       </div>
     </nav>

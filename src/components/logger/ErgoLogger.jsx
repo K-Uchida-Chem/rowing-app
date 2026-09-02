@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Camera, Watch, Activity, Timer, HeartPulse, PenTool, Ruler, FileSpreadsheet, Info, FileText, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { HEART_RATE_ZONES, RPE_SCALE } from '../../db/masterData';
 import { addErgoRecord } from '../../db/database';
 import { extractErgoData, extractWatchData, hasApiKey } from '../../services/ocrService';
@@ -285,9 +286,8 @@ export default function ErgoLogger() {
     <div className="space-y-4" id="ergo-logger">
       <div className="glass-card p-4" id="ocr-upload-section">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">📸</span>
           <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-            PM5 画像から自動入力
+            <span className="flex items-center justify-center gap-1"><Camera size={14} /> カメラ / 画像から自動入力 (β)</span>
           </h3>
           <span className="text-[10px] text-[var(--color-text-muted)] ml-auto">
             {hasApiKey() ? '✅ OCR' : '⚠️ APIキー未設定'}
@@ -328,7 +328,7 @@ export default function ErgoLogger() {
             onClick={() => fileInputRef.current?.click()}
             id="ocr-dropzone"
           >
-            <div className="text-3xl mb-2">📷</div>
+            <Camera size={28} className="text-[var(--color-text-secondary)] mx-auto mb-2" />
             <p className="text-sm font-medium text-[var(--color-text-secondary)]">
               PM5モニターの写真をアップロード
             </p>
@@ -349,13 +349,13 @@ export default function ErgoLogger() {
         />
 
         {ocrError && (
-          <div className="mt-2 px-3 py-2 rounded-lg bg-[rgba(248,113,113,0.1)] border border-[rgba(248,113,113,0.2)] text-xs text-[var(--color-accent-danger)]">
-            ⚠️ {ocrError}
+          <div className="mt-2 px-3 py-2 rounded-lg bg-[rgba(248,113,113,0.1)] border border-[rgba(248,113,113,0.2)] text-xs text-[var(--color-accent-danger)] flex items-center gap-1.5">
+            <AlertTriangle size={14} /> {ocrError}
           </div>
         )}
         {ocrSuccess && !ocrError && (
-          <div className="mt-2 px-3 py-2 rounded-lg bg-[rgba(52,211,153,0.1)] border border-[rgba(52,211,153,0.2)] text-xs text-[var(--color-accent-success)]">
-            ✅ OCR解析完了 — データが自動入力されました
+          <div className="mt-2 px-3 py-2 rounded-lg bg-[rgba(52,211,153,0.1)] border border-[rgba(52,211,153,0.2)] text-xs text-[var(--color-accent-success)] flex items-center gap-1.5">
+            <CheckCircle2 size={14} /> OCR解析完了 — データが自動入力されました
           </div>
         )}
 
@@ -370,10 +370,10 @@ export default function ErgoLogger() {
         <button
           onClick={() => watchInputRef.current?.click()}
           disabled={isOcrProcessing}
-          className="w-full mt-2 px-4 py-2.5 rounded-xl text-xs font-medium text-[var(--color-text-secondary)] bg-[rgba(167,139,250,0.06)] border border-[rgba(167,139,250,0.1)] cursor-pointer transition-all duration-200 hover:bg-[rgba(167,139,250,0.12)] hover:border-[rgba(167,139,250,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full mt-2 px-4 py-2.5 rounded-xl text-xs font-medium text-[var(--color-text-secondary)] bg-[rgba(255,255,255,0.03)] border border-[var(--color-surface-600)] cursor-pointer transition-all duration-200 hover:bg-[rgba(255,255,255,0.06)] hover:border-[var(--color-surface-500)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           id="watch-upload-btn"
         >
-          ⌚ Apple Watch / Garmin スクショから心拍取得
+          <Watch size={14} /> Apple Watch / Garmin スクショから心拍取得
         </button>
       </div>
 
@@ -445,19 +445,19 @@ export default function ErgoLogger() {
       <div className="glass-card p-4">
         <div className="flex gap-2 bg-[var(--color-surface-700)] p-1 rounded-xl">
           {[
-            { id: 'normal', label: '通常記録', icon: '📝' },
-            { id: 'distance', label: '距離メニュー', icon: '📏' },
-            { id: 'time', label: '時間メニュー', icon: '⏱️' },
+            { id: 'normal', label: '通常記録', icon: <PenTool size={14} /> },
+            { id: 'distance', label: '距離メニュー', icon: <Ruler size={14} /> },
+            { id: 'time', label: '時間メニュー', icon: <Timer size={14} /> },
           ].map(fmt => (
             <button
               key={fmt.id}
               onClick={() => setMenuFormat(fmt.id)}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5
                 ${menuFormat === fmt.id 
-                  ? 'bg-[var(--color-accent-primary)] text-white shadow-md' 
+                  ? 'bg-[var(--color-surface-500)] text-white shadow-sm' 
                   : 'text-[var(--color-text-secondary)] hover:bg-[rgba(255,255,255,0.05)]'}`}
             >
-              <span>{fmt.icon}</span> {fmt.label}
+              <span className="opacity-80">{fmt.icon}</span> {fmt.label}
             </button>
           ))}
         </div>
@@ -466,9 +466,9 @@ export default function ErgoLogger() {
       {/* ─── Ergo Data Fields ────────────────────────────── */}
       {menuFormat === 'normal' && (
         <div className="glass-card p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-base">🚣</span>
-            <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+          <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+            <Activity size={16} className="text-[var(--color-text-secondary)]" />
+            <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
               エルゴデータ
             </h3>
           </div>
@@ -485,16 +485,17 @@ export default function ErgoLogger() {
 
       {/* ─── Interval Details ────────────────────────────── */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">{menuFormat === 'normal' ? '⏱️' : '📋'}</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          {menuFormat === 'normal' ? <FileSpreadsheet size={16} className="text-[var(--color-text-secondary)]" /> : <Timer size={16} className="text-[var(--color-text-secondary)]" />}
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
             {menuFormat === 'normal' ? 'インターバル詳細 (任意)' : 'セット記録'}
           </h3>
         </div>
         
         {menuFormat !== 'normal' && (
-          <div className="mb-4 text-xs text-[var(--color-text-secondary)] bg-[rgba(56,189,248,0.1)] p-2 rounded-lg border border-[rgba(56,189,248,0.2)]">
-            ℹ️ 各セットの数値を入力すると、全体のタイム・距離・平均スプリットが自動計算されます。
+          <div className="mb-4 text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-700)] p-2 rounded flex gap-2">
+            <Info size={14} className="shrink-0" />
+            各セットの数値を入力すると、全体のタイム・距離・平均スプリットが自動計算されます。
           </div>
         )}
 
@@ -576,9 +577,9 @@ export default function ErgoLogger() {
 
       {/* ─── Heart Rate Fields ───────────────────────────── */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">❤️</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <HeartPulse size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
             心拍データ
           </h3>
         </div>
@@ -633,10 +634,10 @@ export default function ErgoLogger() {
 
       {/* ─── Memo & Video ────────────────────────────────── */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">📝</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-            メモ & 動画
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <FileText size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
+            メモ・振り返り
           </h3>
         </div>
 

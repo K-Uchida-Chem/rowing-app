@@ -1,49 +1,10 @@
+import { Activity, LayoutDashboard, BarChart2, History, Settings, Anchor } from 'lucide-react';
+
 const sidebarItems = [
-  {
-    id: 'home',
-    label: 'ホーム',
-    labelEn: 'Home',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    id: 'logger',
-    label: 'ログ入力',
-    labelEn: 'Logger',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-      </svg>
-    ),
-  },
-  {
-    id: 'analytics',
-    label: 'アナリティクス',
-    labelEn: 'Analytics',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
-      </svg>
-    ),
-  },
-  {
-    id: 'history',
-    label: 'データベース',
-    labelEn: 'History',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
+  { id: 'home', label: 'Home', icon: <LayoutDashboard size={20} /> },
+  { id: 'logger', label: 'Logger', icon: <Activity size={20} /> },
+  { id: 'analytics', label: 'Analytics', icon: <BarChart2 size={20} /> },
+  { id: 'history', label: 'History', icon: <History size={20} /> },
 ];
 
 export default function Sidebar({ activeTab, onTabChange, onOpenSettings }) {
@@ -57,26 +18,12 @@ export default function Sidebar({ activeTab, onTabChange, onOpenSettings }) {
       }}
       id="sidebar"
     >
-      {/* Logo / App Name */}
-      <div className="px-6 py-6 mb-2">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-            style={{
-              background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
-            }}
-          >
-            🚣
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-[var(--color-text-primary)] leading-tight">
-              RowPro
-            </h1>
-            <p className="text-[10px] text-[var(--color-text-muted)] font-medium tracking-wider uppercase">
-              Athlete Manager
-            </p>
-          </div>
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-6 py-8 mb-2 text-[var(--color-text-primary)]">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--color-surface-600)] to-[var(--color-surface-700)] flex items-center justify-center shadow-lg border border-[var(--color-surface-600)]">
+          <Anchor size={20} className="text-[var(--color-accent-primary)]" />
         </div>
+        <span className="text-xl font-bold tracking-widest uppercase">RowPro</span>
       </div>
 
       {/* Navigation */}
@@ -90,19 +37,19 @@ export default function Sidebar({ activeTab, onTabChange, onOpenSettings }) {
                   id={`sidebar-${item.id}`}
                   onClick={() => onTabChange(item.id)}
                   className={`
-                    w-full flex items-center gap-3 px-4 py-3 rounded-xl
-                    border-none cursor-pointer transition-all duration-200
-                    text-sm font-medium
-                    ${isActive
-                      ? 'bg-[rgba(56,189,248,0.12)] text-[var(--color-accent-primary)]'
-                      : 'bg-transparent text-[var(--color-text-secondary)] hover:bg-[rgba(56,189,248,0.05)] hover:text-[var(--color-text-primary)]'
-                    }
-                  `}
+                  flex items-center gap-3 px-4 py-3 rounded-xl
+                  transition-all duration-200 ease-out border-none bg-transparent
+                  cursor-pointer w-full text-left group
+                  ${isActive
+                    ? 'bg-[var(--color-surface-700)] text-[var(--color-accent-primary)] shadow-sm'
+                    : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-800)] hover:text-[var(--color-text-secondary)]'
+                  }
+                `}
                 >
-                  <span className={`transition-colors duration-200 ${isActive ? 'text-[var(--color-accent-primary)]' : ''}`}>
+                  <div className={`transition-transform duration-200 ${isActive ? 'scale-110' : 'opacity-70 group-hover:scale-110 group-hover:opacity-100'}`}>
                     {item.icon}
-                  </span>
-                  <span>{item.label}</span>
+                  </div>
+                  <span className="text-sm font-semibold tracking-widest uppercase">{item.label}</span>
                   {isActive && (
                     <div
                       className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--color-accent-primary)] pulse-dot"

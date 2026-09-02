@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Dumbbell, PlusCircle, Activity, Save, Settings, Trash2, Calendar } from 'lucide-react';
 import { DAY_PRESETS, STRENGTH_EXERCISES, PERIODIZATION_PHASES } from '../../db/masterData';
 import { addStrengthRecord, calculateEstimated1RM } from '../../db/database';
 
@@ -129,9 +130,9 @@ export default function StrengthLogger() {
     <div className="space-y-4" id="strength-logger">
       {/* ─── Day Selector ────────────────────────────────── */}
       <div className="glass-card p-4" id="day-selector">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">🏋️</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <Activity size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
             トレーニングDay選択
           </h3>
         </div>
@@ -154,7 +155,7 @@ export default function StrengthLogger() {
                   }
                 `}
                 style={{
-                  background: isActive ? `${preset.color}18` : 'rgba(17, 24, 39, 0.5)',
+                  background: isActive ? `${preset.color}18` : 'rgba(11, 15, 25, 0.5)',
                 }}
               >
                 <p className="text-xs font-bold mb-0.5">Day {key}</p>
@@ -169,8 +170,8 @@ export default function StrengthLogger() {
         {/* Date & Phase */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
-              日付
+            <label className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5">
+              <Calendar size={10} /> 日付
             </label>
             <div className="flex gap-2">
               <input
@@ -192,8 +193,8 @@ export default function StrengthLogger() {
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
-              ピリオド
+            <label className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5">
+              <Settings size={10} /> ピリオド
             </label>
             <select
               value={phase}
@@ -206,22 +207,6 @@ export default function StrengthLogger() {
               ))}
             </select>
           </div>
-        </div>
-
-        {/* Phase Info Badge */}
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs mt-3"
-          style={{
-            background: `${phaseData.color}10`,
-            border: `1px solid ${phaseData.color}25`,
-            color: phaseData.color,
-          }}
-        >
-          <span className="font-bold">{phaseData.name}</span>
-          <span className="opacity-50">|</span>
-          <span>強度 {phaseData.intensityRange} 1RM</span>
-          <span className="opacity-50">|</span>
-          <span>{phaseData.repsRange} reps</span>
         </div>
       </div>
 
@@ -242,9 +227,9 @@ export default function StrengthLogger() {
       {!showAddExercise ? (
         <button
           onClick={() => setShowAddExercise(true)}
-          className="w-full px-4 py-3 rounded-xl border border-dashed border-[rgba(56,189,248,0.2)] text-[var(--color-text-muted)] text-sm font-medium hover:border-[rgba(56,189,248,0.4)] hover:text-[var(--color-text-secondary)] hover:bg-[rgba(56,189,248,0.02)] transition-all duration-200"
+          className="w-full px-4 py-3 rounded-xl border border-dashed border-[var(--color-surface-600)] text-[var(--color-text-muted)] text-sm font-medium hover:border-[var(--color-accent-primary)] hover:text-[var(--color-text-primary)] transition-all duration-200 flex items-center justify-center gap-2"
         >
-          + 新規種目追加
+          <PlusCircle size={16} /> 新規種目追加
         </button>
       ) : (
         <div className="glass-card p-4 space-y-3">
@@ -318,7 +303,7 @@ export default function StrengthLogger() {
           disabled={isSaving}
           className={`
             flex-[2] px-4 py-3 rounded-xl text-sm font-bold border-none cursor-pointer
-            transition-all duration-200
+            transition-all duration-200 flex items-center justify-center gap-2
             ${saved
               ? 'bg-[var(--color-accent-success)] text-white'
               : 'bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-secondary)] text-white hover:opacity-90'
@@ -328,15 +313,11 @@ export default function StrengthLogger() {
           id="strength-save-btn"
         >
           {isSaving ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              保存中...
-            </span>
-          ) : saved ? (
-            '✓ 保存しました'
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            '💾 記録を保存'
+            <Save size={16} />
           )}
+          {isSaving ? '保存中...' : saved ? '保存しました' : '記録を保存'}
         </button>
       </div>
     </div>
@@ -346,7 +327,6 @@ export default function StrengthLogger() {
 // ─── Exercise Card Component ───────────────────────────────
 
 function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayColor }) {
-  // Calculate best estimated 1RM from all sets
   const best1RM = useMemo(() => {
     let max = 0;
     for (const set of sets) {
@@ -362,11 +342,7 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
     <div
       className="glass-card p-4"
       id={`exercise-${exercise.id}`}
-      style={{
-        borderLeft: `3px solid ${dayColor}40`,
-      }}
     >
-      {/* Exercise Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
           <h4 className="text-sm font-bold text-[var(--color-text-primary)]">
@@ -378,23 +354,18 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
         </div>
         {best1RM > 0 && (
           <div
-            className="text-right px-3 py-1.5 rounded-lg"
-            style={{
-              background: `${dayColor}12`,
-              border: `1px solid ${dayColor}25`,
-            }}
+            className="text-right px-3 py-1.5 rounded-lg bg-[rgba(56,189,248,0.1)] border border-[rgba(56,189,248,0.2)]"
           >
             <p className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">
               推定1RM
             </p>
-            <p className="text-lg font-bold tabular-nums" style={{ color: dayColor }}>
-              {best1RM}<span className="text-xs ml-0.5">kg</span>
+            <p className="text-lg font-bold tabular-nums text-[var(--color-accent-primary)]">
+              {best1RM}<span className="text-xs ml-0.5 text-[var(--color-text-secondary)]">kg</span>
             </p>
           </div>
         )}
       </div>
 
-      {/* Set Headers */}
       <div className="grid grid-cols-[32px_1fr_1fr_32px] gap-2 mb-1.5 px-1">
         <span className="text-[9px] text-[var(--color-text-muted)] font-semibold text-center">Set</span>
         <span className="text-[9px] text-[var(--color-text-muted)] font-semibold">重量 (kg)</span>
@@ -402,7 +373,6 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
         <span />
       </div>
 
-      {/* Sets */}
       <div className="space-y-2">
         {sets.map((set, idx) => {
           const est1RM = (set.weight && set.reps)
@@ -434,8 +404,7 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
                 />
                 {est1RM && (
                   <span
-                    className="absolute -right-0.5 -top-1.5 text-[8px] font-bold px-1 rounded"
-                    style={{ color: dayColor, background: `${dayColor}15` }}
+                    className="absolute -right-0.5 -top-1.5 text-[8px] font-bold px-1 rounded text-[var(--color-accent-primary)] bg-[rgba(56,189,248,0.15)]"
                   >
                     ≈{est1RM}
                   </span>
@@ -446,19 +415,18 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
                 className="w-7 h-7 rounded-lg bg-transparent border border-[rgba(248,113,113,0.15)] text-[var(--color-accent-danger)] cursor-pointer flex items-center justify-center text-xs transition-all duration-200 hover:bg-[rgba(248,113,113,0.1)]"
                 title="セット削除"
               >
-                ✕
+                <Trash2 size={14} />
               </button>
             </div>
           );
         })}
       </div>
 
-      {/* Add Set */}
       <button
         onClick={onAddSet}
-        className="w-full mt-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--color-text-muted)] bg-transparent border border-dashed border-[rgba(56,189,248,0.1)] cursor-pointer transition-all duration-200 hover:border-[rgba(56,189,248,0.25)] hover:text-[var(--color-text-secondary)] hover:bg-[rgba(56,189,248,0.03)]"
+        className="w-full mt-2.5 px-3 py-2 rounded-lg text-xs font-medium text-[var(--color-text-muted)] bg-transparent border border-dashed border-[rgba(56,189,248,0.1)] cursor-pointer transition-all duration-200 hover:border-[rgba(56,189,248,0.25)] hover:text-[var(--color-text-secondary)] hover:bg-[rgba(56,189,248,0.03)] flex items-center justify-center gap-2"
       >
-        + セット追加
+        <PlusCircle size={14} /> セット追加
       </button>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Activity, Dumbbell, Utensils, HeartPulse, Edit2 } from 'lucide-react';
 import ErgoLogger from '../components/logger/ErgoLogger';
 import StrengthLogger from '../components/logger/StrengthLogger';
 import NutritionLogger from '../components/logger/NutritionLogger';
@@ -8,29 +9,29 @@ const MODES = [
   {
     id: 'ergo',
     label: 'エルゴ / 水上',
-    icon: '🚣',
-    color: '#38bdf8',
+    icon: <Activity size={18} />,
+    color: '#e2e8f0',
     description: 'エルゴメーター・水上練習記録',
   },
   {
     id: 'strength',
     label: '筋トレ',
-    icon: '🏋️',
-    color: '#ffa726',
+    icon: <Dumbbell size={18} />,
+    color: '#e2e8f0',
     description: 'BIG3・補助・体幹トレーニング',
   },
   {
     id: 'nutrition',
     label: '食事 / 体重',
-    icon: '🍽️',
-    color: '#34d399',
+    icon: <Utensils size={18} />,
+    color: '#e2e8f0',
     description: '栄養PFC・体重記録',
   },
   {
     id: 'condition',
     label: 'コンディション',
-    icon: '🔋',
-    color: '#a78bfa',
+    icon: <HeartPulse size={18} />,
+    color: '#e2e8f0',
     description: '天気・風・睡眠・疲労度',
   },
 ];
@@ -42,9 +43,9 @@ export default function LoggerPage() {
   return (
     <div id="logger-page">
       {/* Header */}
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-[var(--color-text-primary)] flex items-center gap-2">
-          <span>✏️</span> ログ入力
+      <div className="mb-5 flex flex-col gap-1">
+        <h1 className="text-xl font-bold text-[var(--color-text-primary)] flex items-center gap-2 tracking-wide">
+          <Edit2 size={20} className="text-[var(--color-accent-secondary)]" /> ログ入力
         </h1>
         <p className="text-xs text-[var(--color-text-muted)] mt-1">
           Logger — トレーニング・食事データを記録
@@ -81,7 +82,7 @@ export default function LoggerPage() {
                 boxShadow: `0 2px 12px ${m.color}15`,
               } : {}}
             >
-              <span className="text-sm">{m.icon}</span>
+              <span className="flex items-center justify-center opacity-80">{m.icon}</span>
               <span className="hidden sm:inline">{m.label}</span>
               <span className="sm:hidden">{m.label.split(' ')[0]}</span>
             </button>

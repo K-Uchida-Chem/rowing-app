@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Calendar, Save, CloudSun, Smile, FileText } from 'lucide-react';
 import { WEATHER_OPTIONS, CONDITION_OPTIONS } from '../../db/masterData';
 import { addConditionRecord } from '../../db/database';
 
@@ -73,10 +74,10 @@ export default function ConditionLogger() {
 
       {/* Weather & Wind */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">⛅</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-            天候・風
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <CloudSun size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
+            環境情報
           </h3>
         </div>
 
@@ -139,9 +140,9 @@ export default function ConditionLogger() {
 
       {/* Body Condition */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">🔋</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <Smile size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
             主観的コンディション
           </h3>
         </div>
@@ -190,10 +191,10 @@ export default function ConditionLogger() {
 
       {/* Memo */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">📝</span>
-          <h3 className="text-sm font-bold text-[var(--color-text-primary)]">
-            メモ・気づき
+        <div className="flex items-center gap-2 mb-3 border-b border-[var(--color-surface-600)] pb-2">
+          <FileText size={16} className="text-[var(--color-text-secondary)]" />
+          <h3 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
+            体調メモ・怪我
           </h3>
         </div>
         <textarea
@@ -218,15 +219,20 @@ export default function ConditionLogger() {
           disabled={isSaving}
           className={`
             flex-[2] px-4 py-3 rounded-xl text-sm font-bold border-none cursor-pointer
-            transition-all duration-200
+            transition-all duration-200 flex items-center justify-center gap-2
             ${saved
               ? 'bg-[var(--color-accent-success)] text-white'
-              : 'bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-secondary)] text-white hover:opacity-90'
+              : 'bg-[var(--color-surface-700)] text-[var(--color-text-primary)] hover:bg-[var(--color-surface-600)]'
             }
-            disabled:opacity-50 disabled:cursor-not-allowed
           `}
+          id="condition-save-btn"
         >
-          {isSaving ? '保存中...' : saved ? '✓ 保存しました' : '💾 記録を保存'}
+          {isSaving ? (
+            <span className="w-4 h-4 border-2 border-[var(--color-text-primary)] border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Save size={16} />
+          )}
+          {isSaving ? '保存中...' : saved ? '保存しました' : '記録を保存'}
         </button>
       </div>
     </div>

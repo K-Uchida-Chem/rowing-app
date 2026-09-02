@@ -16,7 +16,7 @@ export default function AppLayout({ activeTab, onTabChange, onOpenSettings, chil
           md:ml-64
           pb-24 md:pb-6
           px-4 md:px-8
-          pt-4 md:pt-6
+          pt-[max(env(safe-area-inset-top,1.5rem),1.5rem)] md:pt-6
           max-w-3xl
           md:max-w-4xl
           mx-auto

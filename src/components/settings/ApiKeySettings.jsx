@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Settings, X, Save, Lock, Database, Upload, Download } from 'lucide-react';
 import { getApiKey, setApiKey, hasApiKey } from '../../services/ocrService';
 import { exportData, importData } from '../../db/database';
 
@@ -87,7 +88,7 @@ export default function ApiKeySettings({ isOpen, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-lg">⚙️</span>
+            <Settings className="text-[var(--color-accent-primary)]" size={20} />
             <h3 className="text-base font-bold text-[var(--color-text-primary)]">
               各種設定 (API & データ)
             </h3>
@@ -96,14 +97,15 @@ export default function ApiKeySettings({ isOpen, onClose }) {
             onClick={onClose}
             className="w-8 h-8 rounded-lg bg-[var(--color-surface-600)] border-none text-[var(--color-text-muted)] cursor-pointer flex items-center justify-center text-sm hover:text-[var(--color-text-primary)] transition-colors"
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 
         {/* Info */}
-        <div className="mb-4 px-3 py-2.5 rounded-xl bg-[rgba(56,189,248,0.06)] border border-[rgba(56,189,248,0.1)]">
+        <div className="mb-4 px-3 py-2.5 rounded-xl bg-[rgba(56,189,248,0.06)] border border-[rgba(56,189,248,0.1)] flex gap-2">
+          <Lock size={14} className="text-[var(--color-text-secondary)] mt-0.5 flex-shrink-0" />
           <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-            🔒 APIキーはブラウザのLocalStorageに保存され、Google API以外には送信されません。
+            APIキーはブラウザのLocalStorageに保存され、Google API以外には送信されません。
             <a
               href="https://aistudio.google.com/apikey"
               target="_blank"
@@ -157,7 +159,7 @@ export default function ApiKeySettings({ isOpen, onClose }) {
           <button
             onClick={handleSave}
             className={`
-              flex-1 px-4 py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer transition-all duration-200
+              flex flex-1 items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border-none cursor-pointer transition-all duration-200
               ${saved
                 ? 'bg-[var(--color-accent-success)] text-white'
                 : 'bg-gradient-to-r from-[var(--color-accent-primary)] to-[var(--color-accent-secondary)] text-white hover:opacity-90'
@@ -165,6 +167,7 @@ export default function ApiKeySettings({ isOpen, onClose }) {
             `}
             id="api-key-save-btn"
           >
+            {!saved && <Save size={16} />}
             {saved ? '✓ 保存しました' : '保存'}
           </button>
         </div>
@@ -174,7 +177,7 @@ export default function ApiKeySettings({ isOpen, onClose }) {
 
         {/* Backup / Restore Section */}
         <div className="mb-2 flex items-center gap-2">
-          <span className="text-base">💾</span>
+          <Database size={16} className="text-[var(--color-text-primary)]" />
           <h4 className="text-sm font-bold text-[var(--color-text-primary)]">
             データのバックアップ・復元
           </h4>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Activity, Flame, Ruler, Timer, ArrowUpRight } from 'lucide-react';
 import { NUTRITION_TARGETS, STRENGTH_EXERCISES } from '../../db/masterData';
 import db from '../../db/database';
 
@@ -64,7 +65,7 @@ export default function TodayStats() {
 
   const macros = [
     {
-      label: 'カロリー',
+      label: 'Calories',
       current: nutritionToday.calories,
       target: targets.calories,
       unit: 'kcal',
@@ -72,7 +73,7 @@ export default function TodayStats() {
       gradient: 'linear-gradient(90deg, #38bdf8, #818cf8)',
     },
     {
-      label: 'タンパク質',
+      label: 'Protein',
       current: nutritionToday.protein,
       target: targets.protein,
       unit: 'g',
@@ -80,7 +81,7 @@ export default function TodayStats() {
       gradient: 'linear-gradient(90deg, #f87171, #fb923c)',
     },
     {
-      label: '脂質',
+      label: 'Fat',
       current: nutritionToday.fat,
       target: targets.fat,
       unit: 'g',
@@ -88,7 +89,7 @@ export default function TodayStats() {
       gradient: 'linear-gradient(90deg, #fbbf24, #f59e0b)',
     },
     {
-      label: '炭水化物',
+      label: 'Carbs',
       current: nutritionToday.carbs,
       target: targets.carbs,
       unit: 'g',
@@ -98,40 +99,60 @@ export default function TodayStats() {
   ];
 
   return (
-    <div className="glass-card p-5 mb-4" id="today-stats">
-      <div className="flex items-center justify-between mb-4">
+    <div className="glass-card p-4">
+      <div className="flex items-center justify-between mb-6 border-b border-[var(--color-surface-600)] pb-2">
         <div className="flex items-center gap-2">
-          <span className="text-base">📊</span>
-          <h2 className="text-sm font-bold text-[var(--color-text-primary)] uppercase tracking-wider">
-            今日のサマリー
+          <Activity size={16} className="text-[var(--color-text-secondary)]" />
+          <h2 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
+            Today's Summary
           </h2>
         </div>
-        <span className="text-[10px] text-[var(--color-text-muted)] font-medium">
-          Today&apos;s Summary
-        </span>
       </div>
 
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div className="text-center p-3 rounded-xl bg-[rgba(56,189,248,0.06)] border border-[rgba(56,189,248,0.08)]">
-          <p className="text-xl font-bold text-[var(--color-accent-primary)] tabular-nums">{data.ergo.length}</p>
-          <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">エルゴ (本数)</p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-6 mb-8 mt-2 px-2">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+            <Timer size={12} /> Total Time
+          </div>
+          <div className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+            {stats.time}
+          </div>
         </div>
-        <div className="text-center p-3 rounded-xl bg-[rgba(255,167,38,0.06)] border border-[rgba(255,167,38,0.08)]">
-          <p className="text-xl font-bold text-[var(--color-accent-warning)] tabular-nums">{Object.keys(strengthSummary).length}</p>
-          <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">ウェイト (種目)</p>
+
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+            <Ruler size={12} /> Distance
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-accent-primary)] leading-none">
+              {(stats.distance / 1000).toFixed(1)}
+            </span>
+            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">km</span>
+          </div>
         </div>
-        <div className="text-center p-3 rounded-xl bg-[rgba(167,139,250,0.06)] border border-[rgba(167,139,250,0.08)]">
-          <p className="text-xl font-bold text-[var(--color-accent-purple)] tabular-nums">
-            {data.bodyWeight ? data.bodyWeight : '—'}
-          </p>
-          <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">体重 (kg)</p>
+
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+            <Flame size={12} /> Calories
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+              {stats.calories}
+            </span>
+            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">kcal</span>
+          </div>
         </div>
-        <div className="text-center p-3 rounded-xl bg-[rgba(52,211,153,0.06)] border border-[rgba(52,211,153,0.08)]">
-          <p className="text-xl font-bold text-[var(--color-accent-success)] tabular-nums">
-            {data.sleepHours ? data.sleepHours : '—'}
-          </p>
-          <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">睡眠 (h)</p>
+
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+            <ArrowUpRight size={12} /> Workload
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+              {stats.tss}
+            </span>
+            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">TSS</span>
+          </div>
         </div>
       </div>
 
@@ -143,8 +164,8 @@ export default function TodayStats() {
           </p>
           
           {data.ergo.length > 0 && (
-            <div className="p-3 rounded-xl bg-[var(--color-surface-600)] border border-[rgba(56,189,248,0.08)]">
-              <p className="text-xs font-bold text-[var(--color-accent-primary)] mb-1">🚣 エルゴ</p>
+            <div className="p-3 rounded-xl bg-[var(--color-surface-600)] border border-[rgba(226,232,240,0.08)]">
+              <p className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-primary)] mb-1">エルゴ</p>
               {data.ergo.map((r, i) => (
                 <div key={i} className="text-xs text-[var(--color-text-primary)] mt-1">
                   <span className="inline-block w-8 text-[var(--color-text-muted)]">{r.type}</span>
@@ -160,8 +181,8 @@ export default function TodayStats() {
           )}
 
           {Object.keys(strengthSummary).length > 0 && (
-            <div className="p-3 rounded-xl bg-[var(--color-surface-600)] border border-[rgba(255,167,38,0.08)]">
-              <p className="text-xs font-bold text-[var(--color-accent-warning)] mb-1">🏋️ ウェイト</p>
+            <div className="p-3 rounded-xl bg-[var(--color-surface-600)] border border-[rgba(226,232,240,0.08)]">
+              <p className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-primary)] mb-1">ウェイト</p>
               {Object.entries(strengthSummary).map(([exerciseId, stats], i) => {
                 const exerciseName = STRENGTH_EXERCISES[exerciseId]?.name || exerciseId;
                 return (

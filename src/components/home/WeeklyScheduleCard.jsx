@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Settings, Dumbbell, Activity } from 'lucide-react';
 import db from '../../db/database';
 
 const WeeklyScheduleCard = ({ onEdit }) => {
@@ -36,10 +37,13 @@ const WeeklyScheduleCard = ({ onEdit }) => {
             padding: '0.4rem 0.8rem',
             borderRadius: '6px',
             cursor: 'pointer',
-            fontSize: '0.9rem'
+            fontSize: '0.9rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem'
           }}
         >
-          ⚙️ 週間メニューを編集
+          <Settings size={16} /> 週間メニューを編集
         </button>
       </div>
 
@@ -48,12 +52,14 @@ const WeeklyScheduleCard = ({ onEdit }) => {
       ) : schedule ? (
         <div>
           {schedule.ergoType && schedule.ergoType !== 'none' && (
-            <div style={{ marginBottom: '0.5rem' }}>
+            <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Activity size={16} className="text-[var(--color-accent-primary)]" />
               <strong>エルゴ:</strong> {schedule.ergoType}
             </div>
           )}
           {schedule.strengthDay && schedule.strengthDay !== 'none' && (
-            <div style={{ marginBottom: '0.5rem' }}>
+            <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Dumbbell size={16} className="text-[var(--color-accent-warning)]" />
               <strong>ウエイト:</strong> {schedule.strengthDay}
             </div>
           )}

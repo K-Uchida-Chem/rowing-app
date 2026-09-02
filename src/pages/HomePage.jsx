@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Anchor } from 'lucide-react';
 import WeatherConditionCard from '../components/home/WeatherConditionCard';
 import WeeklyScheduleCard from '../components/home/WeeklyScheduleCard';
 import WeeklyScheduleSettings from '../components/settings/WeeklyScheduleSettings';
@@ -18,7 +19,7 @@ export default function HomePage({ onTabChange }) {
               background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
             }}
           >
-            🚣
+            <Anchor size={20} className="text-white" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-[var(--color-text-primary)] leading-tight">

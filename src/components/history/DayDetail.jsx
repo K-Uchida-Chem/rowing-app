@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Edit2, Trash2, FileText, Timer, Link as LinkIcon } from 'lucide-react';
 import { STRENGTH_EXERCISES } from '../../db/masterData';
 import { calculateEstimated1RM, deleteRecord, updateRecord } from '../../db/database';
 import RecordEditModal from './RecordEditModal';
@@ -38,7 +39,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
     return (
       <div className="mt-3 p-3 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)]">
         <div className="text-[10px] text-[var(--color-text-muted)] font-bold mb-1 flex items-center gap-1">
-          📝 振り返り
+          <FileText size={12} /> 振り返り
         </div>
         <div className="text-sm text-[var(--color-text-secondary)] whitespace-pre-wrap leading-relaxed">
           {memo}
@@ -94,8 +95,8 @@ const DayDetail = ({ date, records, onRecordChange }) => {
               <div style={headerStyle} className="flex justify-between items-center">
                 <span style={{ color: 'var(--color-text-secondary)', fontWeight: 'bold' }}>体重</span>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditingRecord(record); setEditingTable('bodyWeightRecords'); }} className={actionBtnStyle}>✏️</button>
-                  <button onClick={() => handleDelete('bodyWeightRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                  <button onClick={() => { setEditingRecord(record); setEditingTable('bodyWeightRecords'); }} className={actionBtnStyle}><Edit2 size={12}/></button>
+                  <button onClick={() => handleDelete('bodyWeightRecords', record.id)} className={actionBtnStyle}><Trash2 size={12}/></button>
                 </div>
               </div>
               <div style={{ color: 'var(--color-text-primary)', fontSize: '1.2rem' }}>
@@ -113,8 +114,8 @@ const DayDetail = ({ date, records, onRecordChange }) => {
                   {getSessionBadge(record.session)}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditingRecord(record); setEditingTable('ergoRecords'); }} className={actionBtnStyle}>✏️</button>
-                  <button onClick={() => handleDelete('ergoRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                  <button onClick={() => { setEditingRecord(record); setEditingTable('ergoRecords'); }} className={actionBtnStyle}><Edit2 size={12}/></button>
+                  <button onClick={() => handleDelete('ergoRecords', record.id)} className={actionBtnStyle}><Trash2 size={12}/></button>
                 </div>
               </div>
               <div style={gridStyle}>
@@ -130,7 +131,9 @@ const DayDetail = ({ date, records, onRecordChange }) => {
               {/* Intervals */}
               {record.intervals && record.intervals.length > 0 && (
                 <div className="mt-3">
-                  <div className="text-[10px] text-[var(--color-text-muted)] font-bold mb-1">⏱️ インターバル</div>
+                  <div className="text-[10px] text-[var(--color-text-muted)] font-bold mb-1 flex items-center gap-1">
+                    <Timer size={12} /> インターバル
+                  </div>
                   <div className="space-y-1">
                     {record.intervals.map((interval, i) => (
                       <div key={i} className="flex justify-between items-center px-2 py-1.5 bg-[var(--color-surface-600)] rounded-md text-xs">
@@ -147,8 +150,8 @@ const DayDetail = ({ date, records, onRecordChange }) => {
               {/* Video/Image Link */}
               {record.videoUrl && (
                 <div className="mt-3">
-                  <a href={record.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[rgba(56,189,248,0.1)] text-[var(--color-accent-primary)] text-xs font-bold hover:bg-[rgba(56,189,248,0.2)] transition-colors no-underline">
-                    🔗 参考動画 / 画像リンク
+                  <a href={record.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[rgba(226,232,240,0.1)] text-[var(--color-accent-primary)] text-xs font-bold hover:bg-[rgba(226,232,240,0.2)] transition-colors no-underline">
+                    <LinkIcon size={12} /> 参考動画 / 画像リンク
                   </a>
                 </div>
               )}
@@ -169,8 +172,8 @@ const DayDetail = ({ date, records, onRecordChange }) => {
                     {getSessionBadge(record.session)}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => { setEditingRecord(record); setEditingTable('strengthRecords'); }} className={actionBtnStyle}>✏️</button>
-                    <button onClick={() => handleDelete('strengthRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                    <button onClick={() => { setEditingRecord(record); setEditingTable('strengthRecords'); }} className={actionBtnStyle}><Edit2 size={12}/></button>
+                    <button onClick={() => handleDelete('strengthRecords', record.id)} className={actionBtnStyle}><Trash2 size={12}/></button>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
@@ -200,8 +203,8 @@ const DayDetail = ({ date, records, onRecordChange }) => {
               <div style={headerStyle} className="flex justify-between items-center">
                 <span style={{ color: 'var(--color-accent-success)', fontWeight: 'bold' }}>食事 ({record.mealType})</span>
                 <div className="flex gap-2">
-                  <button onClick={() => { setEditingRecord(record); setEditingTable('nutritionRecords'); }} className={actionBtnStyle}>✏️</button>
-                  <button onClick={() => handleDelete('nutritionRecords', record.id)} className={actionBtnStyle}>🗑️</button>
+                  <button onClick={() => { setEditingRecord(record); setEditingTable('nutritionRecords'); }} className={actionBtnStyle}><Edit2 size={12}/></button>
+                  <button onClick={() => handleDelete('nutritionRecords', record.id)} className={actionBtnStyle}><Trash2 size={12}/></button>
                 </div>
               </div>
               <div style={gridStyle}>
