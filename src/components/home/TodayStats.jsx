@@ -98,6 +98,45 @@ export default function TodayStats() {
     },
   ];
 
+  // Calculate ergo totals for stats
+  const ergoStats = data.ergo.reduce((acc, curr) => {
+    acc.distance += Number(curr.distance) || 0;
+    if (curr.time) {
+      const parts = curr.time.split(':');
+      let secs = 0;
+      if (parts.length === 3) {
+        secs = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+      } else if (parts.length === 2) {
+        secs = parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+      }
+      acc.timeSeconds += secs;
+    }
+    return acc;
+  }, { distance: 0, timeSeconds: 0 });
+
+  const formatTime = (totalSeconds) => {
+    if (!totalSeconds) return '0:00';
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Mock TSS based on time/distance, or just use 0 if none
+  const calculateTSS = () => {
+    // Rough estimate: 1 hour of UT2 is roughly 40-50 TSS
+    if (ergoStats.timeSeconds === 0) return 0;
+    return Math.round((ergoStats.timeSeconds / 3600) * 50);
+  };
+
+  const stats = {
+    time: formatTime(ergoStats.timeSeconds),
+    distance: ergoStats.distance,
+    calories: nutritionToday.calories,
+    tss: calculateTSS()
+  };
+
   return (
     <div className="glass-card p-4">
       <div className="flex items-center justify-between mb-6 border-b border-[var(--color-surface-600)] pb-2">
