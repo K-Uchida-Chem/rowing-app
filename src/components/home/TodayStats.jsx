@@ -10,6 +10,7 @@ import db, { getBest2kTT } from '../../db/database';
 export default function TodayStats() {
   const [data, setData] = useState({
     ergo: [],
+    cross: [],
     strength: [],
     condition: null,
     bodyWeight: null,
@@ -20,6 +21,7 @@ export default function TodayStats() {
     const fetchTodayData = async () => {
       const today = new Date().toISOString().split('T')[0];
       const ergo = await db.ergoRecords.where('date').equals(today).toArray();
+      const cross = await db.crossTrainingRecords ? await db.crossTrainingRecords.where('date').equals(today).toArray() : [];
       const strength = await db.strengthRecords.where('date').equals(today).toArray();
       const bodyWeightList = await db.bodyWeightRecords.where('date').equals(today).toArray();
       const conditionList = await db.conditionRecords.where('date').equals(today).toArray();
@@ -27,6 +29,7 @@ export default function TodayStats() {
       
       setData({
         ergo,
+        cross,
         strength,
         condition: conditionList.length > 0 ? conditionList[0] : null,
         bodyWeight: bodyWeightList.length > 0 ? bodyWeightList[0].weight : null,
@@ -79,6 +82,7 @@ export default function TodayStats() {
   const memos = [];
   if (data.condition?.memo) memos.push(`【体調】${data.condition.memo}`);
   data.ergo.forEach((r, i) => { if (r.memo) memos.push(`【エルゴ${i+1}】${r.memo}`); });
+  data.cross.forEach((r, i) => { if (r.memo) memos.push(`【${r.type === 'running' ? 'ラン' : 'バイク'}${i+1}】${r.memo}`); });
   data.strength.forEach((r, i) => { if (r.memo) memos.push(`【ウェイト${i+1}】${r.memo}`); });
 
   return (
@@ -123,7 +127,7 @@ export default function TodayStats() {
         </div>
 
         <div className="space-y-3">
-          {data.ergo.length === 0 && Object.keys(strengthSummary).length === 0 && (
+          {data.ergo.length === 0 && data.cross.length === 0 && Object.keys(strengthSummary).length === 0 && (
              <p className="text-xs text-[var(--color-text-muted)]">本日のトレーニング記録はありません。</p>
           )}
 
@@ -142,6 +146,22 @@ export default function TodayStats() {
                       {r.intervals.length} sets
                     </span>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {data.cross.length > 0 && (
+            <div className="p-3 rounded-xl bg-[var(--color-surface-600)] border border-[rgba(226,232,240,0.08)]">
+              <p className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-primary)] mb-2">ラン / バイク</p>
+              {data.cross.map((r, i) => (
+                <div key={i} className="text-xs text-[var(--color-text-secondary)] mt-1.5 flex flex-wrap gap-x-2.5 items-center">
+                  <span className="font-bold text-[var(--color-text-primary)] inline-block min-w-[36px]">
+                    {r.type === 'running' ? 'Run' : 'Bike'}
+                  </span>
+                  {r.distance && <span>{r.distance}km</span>}
+                  {r.time && <span>{r.time}</span>}
+                  {r.avgHR && <span>♥{r.avgHR}bpm</span>}
                 </div>
               ))}
             </div>

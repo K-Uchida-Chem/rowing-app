@@ -8,7 +8,7 @@ import Dexie from 'dexie';
  */
 const db = new Dexie('RowingAppDB');
 
-db.version(2).stores({
+db.version(3).stores({
   // ─── エルゴメーター記録 ───────────────────────────────
   // PM5 OCR or manual input: time, distance, split, watts, rate, HR, RPE, memo
   ergoRecords: '++id, date, type, zone, [date+type]',
@@ -31,6 +31,10 @@ db.version(2).stores({
   // ─── 週間メニュー ─────────────────────────────────────
   // dayOfWeek (0: Sunday, 1: Monday, ..., 6: Saturday)
   weeklySchedule: 'dayOfWeek',
+
+  // ─── クロストレーニング記録 (ランニング/サイクリング) ──
+  // type: 'running' | 'cycling', distance, time, avgHR, memo, videoUrl
+  crossTrainingRecords: '++id, date, type, [date+type]',
 });
 
 /**
@@ -44,6 +48,7 @@ export const exportData = async () => {
     conditionRecords: await db.conditionRecords.toArray(),
     bodyWeightRecords: await db.bodyWeightRecords.toArray(),
     weeklySchedule: await db.weeklySchedule.toArray(),
+    crossTrainingRecords: await db.crossTrainingRecords.toArray(),
   };
   return JSON.stringify(data);
 };
@@ -73,6 +78,7 @@ export const importData = async (jsonString) => {
       if (data.conditionRecords?.length) await db.conditionRecords.bulkAdd(data.conditionRecords);
       if (data.bodyWeightRecords?.length) await db.bodyWeightRecords.bulkAdd(data.bodyWeightRecords);
       if (data.weeklySchedule?.length) await db.weeklySchedule.bulkAdd(data.weeklySchedule);
+      if (data.crossTrainingRecords?.length) await db.crossTrainingRecords.bulkAdd(data.crossTrainingRecords);
     });
     
     return true;
@@ -135,6 +141,24 @@ export async function addStrengthRecord(record) {
   return db.strengthRecords.add({
     ...record,
     estimated1RM,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * クロストレーニング記録を保存する
+ * @param {Object} record
+ * @param {string} record.date - ISO date string (YYYY-MM-DD)
+ * @param {string} record.type - 'running' | 'cycling'
+ * @param {number} [record.distance] - Distance (km)
+ * @param {string} [record.time] - Total time (e.g., "30:00")
+ * @param {number} [record.avgHR] - Average heart rate
+ * @param {string} [record.memo] - Free text memo
+ * @param {string} [record.videoUrl] - Reference video link
+ */
+export async function addCrossTrainingRecord(record) {
+  return db.crossTrainingRecords.add({
+    ...record,
     createdAt: new Date().toISOString(),
   });
 }

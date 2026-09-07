@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Activity, Dumbbell, Utensils, HeartPulse, Edit2 } from 'lucide-react';
+import { Activity, Dumbbell, Utensils, HeartPulse, Edit2, Zap } from 'lucide-react';
 import ErgoLogger from '../components/logger/ErgoLogger';
 import StrengthLogger from '../components/logger/StrengthLogger';
 import NutritionLogger from '../components/logger/NutritionLogger';
 import ConditionLogger from '../components/logger/ConditionLogger';
+import CrossTrainingLogger from '../components/logger/CrossTrainingLogger';
 
 const MODES = [
   {
@@ -12,6 +13,13 @@ const MODES = [
     icon: <Activity size={18} />,
     color: '#e2e8f0',
     description: 'エルゴメーター・水上練習記録',
+  },
+  {
+    id: 'cross',
+    label: 'クロストレーニング',
+    icon: <Zap size={18} />,
+    color: '#e2e8f0',
+    description: 'ランニング・バイク・その他練習記録',
   },
   {
     id: 'strength',
@@ -83,8 +91,8 @@ export default function LoggerPage() {
               } : {}}
             >
               <span className="flex items-center justify-center opacity-80">{m.icon}</span>
-              <span className="hidden sm:inline">{m.label}</span>
-              <span className="sm:hidden">{m.label.split(' ')[0]}</span>
+              <span className="hidden sm:inline">{m.label.split(' / ')[0]}</span>
+              <span className="sm:hidden">{m.label.split(' / ')[0]}</span>
             </button>
           );
         })}
@@ -103,6 +111,7 @@ export default function LoggerPage() {
 
       {/* ─── Logger Content ──────────────────────────────── */}
       {mode === 'ergo' && <ErgoLogger />}
+      {mode === 'cross' && <CrossTrainingLogger />}
       {mode === 'strength' && <StrengthLogger />}
       {mode === 'nutrition' && <NutritionLogger />}
       {mode === 'condition' && <ConditionLogger />}

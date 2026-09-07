@@ -18,6 +18,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
 
   const hasRecords = records && (
     (records.ergo && records.ergo.length > 0) ||
+    (records.cross && records.cross.length > 0) ||
     (records.strength && records.strength.length > 0) ||
     (records.nutrition && records.nutrition.length > 0) ||
     (records.bodyWeight && records.bodyWeight.length > 0)
@@ -160,6 +161,37 @@ const DayDetail = ({ date, records, onRecordChange }) => {
             </div>
           ))}
 
+          {/* Cross Training Records */}
+          {records.cross && records.cross.map(record => (
+            <div key={`cross-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-primary)'}}>
+              <div style={headerStyle} className="flex justify-between items-center">
+                <div>
+                  <span style={{ color: 'var(--color-accent-primary)', fontWeight: 'bold' }}>{record.type === 'running' ? 'ランニング' : 'サイクリング'}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => { setEditingRecord(record); setEditingTable('crossTrainingRecords'); }} className={actionBtnStyle}><Edit2 size={12}/></button>
+                  <button onClick={() => handleDelete('crossTrainingRecords', record.id)} className={actionBtnStyle}><Trash2 size={12}/></button>
+                </div>
+              </div>
+              <div style={gridStyle}>
+                {record.distance && <div style={itemStyle}><span style={labelStyle}>Distance</span>{record.distance}km</div>}
+                {record.time && <div style={itemStyle}><span style={labelStyle}>Time</span>{record.time}</div>}
+                {record.avgHR && <div style={itemStyle}><span style={labelStyle}>Avg HR</span>{record.avgHR}</div>}
+              </div>
+
+              {/* Video/Image Link */}
+              {record.videoUrl && (
+                <div className="mt-3">
+                  <a href={record.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[rgba(226,232,240,0.1)] text-[var(--color-accent-primary)] text-xs font-bold hover:bg-[rgba(226,232,240,0.2)] transition-colors no-underline">
+                    <LinkIcon size={12} /> 参考動画 / 画像リンク
+                  </a>
+                </div>
+              )}
+
+              <MemoSection memo={record.memo} />
+            </div>
+          ))}
+
           {/* Strength Records */}
           {records.strength && records.strength.map(record => {
             const exerciseData = STRENGTH_EXERCISES[record.exercise];
@@ -192,6 +224,16 @@ const DayDetail = ({ date, records, onRecordChange }) => {
                     </div>
                   )}
                 </div>
+                
+                {/* Video/Image Link */}
+                {record.videoUrl && (
+                  <div className="mt-3">
+                    <a href={record.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[rgba(226,232,240,0.1)] text-[var(--color-accent-primary)] text-xs font-bold hover:bg-[rgba(226,232,240,0.2)] transition-colors no-underline">
+                      <LinkIcon size={12} /> 参考動画 / 画像リンク
+                    </a>
+                  </div>
+                )}
+                
                 <MemoSection memo={record.memo} />
               </div>
             );

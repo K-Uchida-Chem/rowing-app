@@ -8,7 +8,7 @@ const HistoryPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthData, setMonthData] = useState({});
-  const [dayRecords, setDayRecords] = useState({ ergo: [], strength: [], nutrition: [], bodyWeight: [] });
+  const [dayRecords, setDayRecords] = useState({ ergo: [], cross: [], strength: [], nutrition: [], bodyWeight: [] });
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
 
@@ -34,8 +34,9 @@ const HistoryPage = () => {
       const startDateStr = formatDateStr(new Date(year, month, 1));
       const endDateStr = formatDateStr(new Date(year, month + 1, 0));
 
-      const [ergo, strength, nutrition] = await Promise.all([
+      const [ergo, cross, strength, nutrition] = await Promise.all([
         db.ergoRecords.where('date').between(startDateStr, endDateStr, true, true).toArray(),
+        db.crossTrainingRecords ? db.crossTrainingRecords.where('date').between(startDateStr, endDateStr, true, true).toArray() : Promise.resolve([]),
         db.strengthRecords.where('date').between(startDateStr, endDateStr, true, true).toArray(),
         db.nutritionRecords.where('date').between(startDateStr, endDateStr, true, true).toArray()
       ]);
@@ -50,6 +51,7 @@ const HistoryPage = () => {
       };
 
       addToData(ergo, 'ergo');
+      addToData(cross, 'ergo'); // Map cross to ergo (blue dot) for now, or you can use a separate one
       addToData(strength, 'strength');
       addToData(nutrition, 'nutrition');
 
@@ -63,12 +65,14 @@ const HistoryPage = () => {
     try {
       const dateStr = formatDateStr(date);
       let ergo = [];
+      let cross = [];
       let strength = [];
       let nutrition = [];
       let bodyWeight = [];
 
       if (filter === 'all' || filter === 'ergo') {
         ergo = await db.ergoRecords.where('date').equals(dateStr).toArray();
+        cross = db.crossTrainingRecords ? await db.crossTrainingRecords.where('date').equals(dateStr).toArray() : [];
       }
       if (filter === 'all' || filter === 'strength') {
         strength = await db.strengthRecords.where('date').equals(dateStr).toArray();
@@ -84,11 +88,12 @@ const HistoryPage = () => {
       if (query.trim()) {
         const q = query.toLowerCase();
         ergo = ergo.filter(r => r.memo?.toLowerCase().includes(q) || r.type?.toLowerCase().includes(q));
+        cross = cross.filter(r => r.memo?.toLowerCase().includes(q) || r.type?.toLowerCase().includes(q));
         strength = strength.filter(r => r.memo?.toLowerCase().includes(q)); // exerciseId mapping requires master data, simplified here
         nutrition = nutrition.filter(r => r.memo?.toLowerCase().includes(q) || r.mealType?.toLowerCase().includes(q));
       }
 
-      setDayRecords({ ergo, strength, nutrition, bodyWeight });
+      setDayRecords({ ergo, cross, strength, nutrition, bodyWeight });
     } catch (error) {
       console.error("Error fetching day records:", error);
     }

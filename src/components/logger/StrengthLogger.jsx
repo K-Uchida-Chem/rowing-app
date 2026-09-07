@@ -8,6 +8,8 @@ export default function StrengthLogger() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [session, setSession] = useState('AM');
   const [phase, setPhase] = useState('hypertrophy');
+  const [memo, setMemo] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -107,6 +109,8 @@ export default function StrengthLogger() {
               day: selectedDay,
               sets: setsArray,
               phase,
+              memo,
+              videoUrl,
             })
           );
         }
@@ -123,6 +127,8 @@ export default function StrengthLogger() {
 
   const handleReset = () => {
     setExerciseSets({});
+    setMemo('');
+    setVideoUrl('');
     setSaved(false);
   };
 
@@ -288,6 +294,37 @@ export default function StrengthLogger() {
           </button>
         </div>
       )}
+
+      {/* ─── Notes & Links ─────────────────────────────── */}
+      <div className="glass-card p-4 space-y-3">
+        <h4 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)] border-b border-[var(--color-surface-600)] pb-2 mb-2">
+          振り返り・参考資料
+        </h4>
+        <div>
+          <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
+            振り返りメモ
+          </label>
+          <textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            placeholder="フォームの意識、疲労感、特記事項など..."
+            rows={2}
+            className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] resize-none"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5 block">
+            動画・画像リンク (任意)
+          </label>
+          <input
+            type="url"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)]"
+          />
+        </div>
+      </div>
 
       {/* ─── Action Buttons ──────────────────────────────── */}
       <div className="flex gap-3">
