@@ -176,6 +176,8 @@ const DayDetail = ({ date, records, onRecordChange }) => {
               <div style={gridStyle}>
                 {record.distance && <div style={itemStyle}><span style={labelStyle}>Distance</span>{record.distance}km</div>}
                 {record.time && <div style={itemStyle}><span style={labelStyle}>Time</span>{record.time}</div>}
+                {record.avgSpeed && <div style={itemStyle}><span style={labelStyle}>Avg Speed</span>{record.avgSpeed}km/h</div>}
+                {record.maxSpeed && <div style={itemStyle}><span style={labelStyle}>Max Speed</span>{record.maxSpeed}km/h</div>}
                 {record.avgHR && <div style={itemStyle}><span style={labelStyle}>Avg HR</span>{record.avgHR}</div>}
               </div>
 

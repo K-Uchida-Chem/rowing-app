@@ -152,6 +152,8 @@ export async function addStrengthRecord(record) {
  * @param {string} record.type - 'running' | 'cycling'
  * @param {number} [record.distance] - Distance (km)
  * @param {string} [record.time] - Total time (e.g., "30:00")
+ * @param {number} [record.avgSpeed] - Average speed (km/h)
+ * @param {number} [record.maxSpeed] - Max speed (km/h)
  * @param {number} [record.avgHR] - Average heart rate
  * @param {string} [record.memo] - Free text memo
  * @param {string} [record.videoUrl] - Reference video link

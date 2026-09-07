@@ -161,6 +161,8 @@ export default function TodayStats() {
                   </span>
                   {r.distance && <span>{r.distance}km</span>}
                   {r.time && <span>{r.time}</span>}
+                  {r.avgSpeed && <span>Avg:{r.avgSpeed}km/h</span>}
+                  {r.maxSpeed && <span>Max:{r.maxSpeed}km/h</span>}
                   {r.avgHR && <span>♥{r.avgHR}bpm</span>}
                 </div>
               ))}

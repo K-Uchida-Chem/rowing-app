@@ -7,6 +7,8 @@ export default function CrossTrainingLogger() {
   const [type, setType] = useState('running'); // 'running' or 'cycling'
   const [distance, setDistance] = useState('');
   const [time, setTime] = useState('');
+  const [avgSpeed, setAvgSpeed] = useState('');
+  const [maxSpeed, setMaxSpeed] = useState('');
   const [avgHR, setAvgHR] = useState('');
   const [memo, setMemo] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
@@ -22,6 +24,8 @@ export default function CrossTrainingLogger() {
         type,
         distance: distance ? Number(distance) : null,
         time,
+        avgSpeed: avgSpeed ? Number(avgSpeed) : null,
+        maxSpeed: maxSpeed ? Number(maxSpeed) : null,
         avgHR: avgHR ? Number(avgHR) : null,
         memo,
         videoUrl,
@@ -40,6 +44,8 @@ export default function CrossTrainingLogger() {
     setType('running');
     setDistance('');
     setTime('');
+    setAvgSpeed('');
+    setMaxSpeed('');
     setAvgHR('');
     setMemo('');
     setVideoUrl('');
@@ -116,6 +122,35 @@ export default function CrossTrainingLogger() {
               value={time}
               onChange={(e) => setTime(e.target.value)}
               placeholder="例: 30:00"
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] tabular-nums"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5">
+              <Activity size={10} /> 平均速度 (km/h)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={avgSpeed}
+              onChange={(e) => setAvgSpeed(e.target.value)}
+              placeholder="例: 12.5"
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] tabular-nums"
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)] font-semibold uppercase tracking-wider mb-1.5">
+              <Activity size={10} /> 最高速度 (km/h)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={maxSpeed}
+              onChange={(e) => setMaxSpeed(e.target.value)}
+              placeholder="例: 15.0"
               className="w-full px-3 py-2.5 rounded-xl bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] tabular-nums"
             />
           </div>
