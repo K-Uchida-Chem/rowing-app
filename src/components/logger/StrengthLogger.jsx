@@ -97,8 +97,8 @@ export default function StrengthLogger() {
       const promises = [];
       for (const exercise of exercises) {
         const setsArray = getSets(exercise.id)
-          .filter(s => s.weight && s.reps)
-          .map(s => ({ weight: Number(s.weight), reps: Number(s.reps) }));
+          .filter(s => s.reps)
+          .map(s => ({ weight: s.weight ? Number(s.weight) : 0, reps: Number(s.reps) }));
           
         if (setsArray.length > 0) {
           promises.push(
@@ -367,7 +367,7 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
   const best1RM = useMemo(() => {
     let max = 0;
     for (const set of sets) {
-      if (set.weight && set.reps) {
+      if (Number(set.weight) > 0 && set.reps) {
         const est = calculateEstimated1RM(Number(set.weight), Number(set.reps));
         if (est > max) max = est;
       }
@@ -412,7 +412,7 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
 
       <div className="space-y-2">
         {sets.map((set, idx) => {
-          const est1RM = (set.weight && set.reps)
+          const est1RM = (Number(set.weight) > 0 && set.reps)
             ? calculateEstimated1RM(Number(set.weight), Number(set.reps))
             : null;
 
@@ -428,7 +428,7 @@ function ExerciseCard({ exercise, sets, onUpdateSet, onAddSet, onRemoveSet, dayC
                 type="number"
                 value={set.weight}
                 onChange={(e) => onUpdateSet(idx, 'weight', e.target.value)}
-                placeholder="0"
+                placeholder="自重"
                 className="w-full px-2.5 py-2 rounded-lg bg-[var(--color-surface-700)] border border-[rgba(56,189,248,0.08)] text-[var(--color-text-primary)] text-sm outline-none transition-all duration-200 focus:border-[rgba(56,189,248,0.3)] tabular-nums text-center"
               />
               <div className="relative">

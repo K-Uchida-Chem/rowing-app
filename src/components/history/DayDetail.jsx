@@ -108,7 +108,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
 
           {/* Ergo Records */}
           {records.ergo && records.ergo.map(record => (
-            <div key={`ergo-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-primary)'}}>
+            <div key={`ergo-${record.id}`} className="glass-card relative group" style={cardStyle}>
               <div style={headerStyle} className="flex justify-between items-center">
                 <div>
                   <span style={{ color: 'var(--color-accent-primary)', fontWeight: 'bold' }}>エルゴ ({record.type || 'UT2'})</span>
@@ -163,7 +163,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
 
           {/* Cross Training Records */}
           {records.cross && records.cross.map(record => (
-            <div key={`cross-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-primary)'}}>
+            <div key={`cross-${record.id}`} className="glass-card relative group" style={cardStyle}>
               <div style={headerStyle} className="flex justify-between items-center">
                 <div>
                   <span style={{ color: 'var(--color-accent-primary)', fontWeight: 'bold' }}>{record.type === 'running' ? 'ランニング' : 'サイクリング'}</span>
@@ -199,7 +199,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
             const exerciseData = STRENGTH_EXERCISES[record.exercise];
             const exerciseName = exerciseData ? exerciseData.name : (record.exerciseName || record.exercise || '筋トレ');
             return (
-              <div key={`str-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-warning)'}}>
+              <div key={`str-${record.id}`} className="glass-card relative group" style={cardStyle}>
                 <div style={headerStyle} className="flex justify-between items-center">
                   <div>
                     <span style={{ color: 'var(--color-accent-warning)', fontWeight: 'bold' }}>{exerciseName}</span>
@@ -212,17 +212,18 @@ const DayDetail = ({ date, records, onRecordChange }) => {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
                   {Array.isArray(record.sets) ? record.sets.map((set, idx) => {
-                    const oneRM = calculateEstimated1RM(set.weight, set.reps);
+                    const isBodyweight = !set.weight || Number(set.weight) === 0;
+                    const oneRM = isBodyweight ? null : calculateEstimated1RM(set.weight, set.reps);
                     return (
                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-primary)' }}>
-                        <span>Set {idx + 1}: {set.weight}kg × {set.reps}回</span>
-                        <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>推定1RM: {oneRM}kg</span>
+                        <span>Set {idx + 1}: {isBodyweight ? `自重` : `${set.weight}kg`} × {set.reps}回</span>
+                        {oneRM && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>推定1RM: {oneRM}kg</span>}
                       </div>
                     );
                   }) : (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-text-primary)' }}>
-                      <span>Set {record.sets || 1}: {record.weight}kg × {record.reps}回</span>
-                      <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>推定1RM: {calculateEstimated1RM(record.weight, record.reps)}kg</span>
+                      <span>Set {record.sets || 1}: {(!record.weight || Number(record.weight) === 0) ? `自重` : `${record.weight}kg`} × {record.reps}回</span>
+                      {(!record.weight || Number(record.weight) === 0) ? null : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>推定1RM: {calculateEstimated1RM(record.weight, record.reps)}kg</span>}
                     </div>
                   )}
                 </div>
@@ -243,7 +244,7 @@ const DayDetail = ({ date, records, onRecordChange }) => {
 
           {/* Nutrition Records */}
           {records.nutrition && records.nutrition.map(record => (
-            <div key={`nut-${record.id}`} className="glass-card relative group" style={{...cardStyle, borderLeft: '4px solid var(--color-accent-success)'}}>
+            <div key={`nut-${record.id}`} className="glass-card relative group" style={cardStyle}>
               <div style={headerStyle} className="flex justify-between items-center">
                 <span style={{ color: 'var(--color-accent-success)', fontWeight: 'bold' }}>食事 ({record.mealType})</span>
                 <div className="flex gap-2">

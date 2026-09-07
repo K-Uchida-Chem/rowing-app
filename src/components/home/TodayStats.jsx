@@ -41,15 +41,31 @@ export default function TodayStats() {
   }, []);
 
   // Strength details logic: group by exercise and find max weight
-  const strengthSummary = data.strength.reduce((acc, curr) => {
-    if (!acc[curr.exercise]) {
-      acc[curr.exercise] = { maxWeight: 0, sets: 0 };
+  const strengthSummary = data.strength.reduce((summary, r) => {
+    if (!summary[r.exercise]) {
+      summary[r.exercise] = { maxWeight: 0, sets: [] };
     }
-    if (curr.weight > acc[curr.exercise].maxWeight) {
-      acc[curr.exercise].maxWeight = curr.weight;
+    const currentMax = r.weight || 0;
+    if (currentMax > summary[r.exercise].maxWeight) {
+      summary[r.exercise].maxWeight = currentMax;
     }
-    acc[curr.exercise].sets += 1;
-    return acc;
+    
+    if (Array.isArray(r.sets)) {
+      r.sets.forEach(set => {
+        if (!set.weight || Number(set.weight) === 0) {
+          summary[r.exercise].sets.push(`自重×${set.reps}`);
+        } else {
+          summary[r.exercise].sets.push(`${set.weight}kg×${set.reps}`);
+        }
+      });
+    } else {
+      if (!r.weight || Number(r.weight) === 0) {
+        summary[r.exercise].sets.push(`自重×${r.reps} (${r.sets || 1}s)`);
+      } else {
+        summary[r.exercise].sets.push(`${r.weight}kg×${r.reps} (${r.sets || 1}s)`);
+      }
+    }
+    return summary;
   }, {});
 
   // Calculate 2k TT Diff
@@ -175,9 +191,14 @@ export default function TodayStats() {
               {Object.entries(strengthSummary).map(([exerciseId, s], i) => {
                 const exerciseName = STRENGTH_EXERCISES[exerciseId]?.name || exerciseId;
                 return (
-                  <div key={i} className="text-xs text-[var(--color-text-primary)] mt-1.5 flex justify-between">
-                    <span>{exerciseName}</span>
-                    <span className="text-[var(--color-text-secondary)]">{s.maxWeight}kg / {s.sets} sets</span>
+                  <div key={i} className="text-xs text-[var(--color-text-primary)] mt-2 flex flex-col gap-1">
+                    <div className="flex justify-between font-bold">
+                      <span>{exerciseName}</span>
+                      <span className="text-[var(--color-text-secondary)]">{s.maxWeight > 0 ? `Max: ${s.maxWeight}kg` : ''}</span>
+                    </div>
+                    <div className="text-[10px] text-[var(--color-text-muted)] pl-2">
+                      {s.sets.join(', ')}
+                    </div>
                   </div>
                 );
               })}

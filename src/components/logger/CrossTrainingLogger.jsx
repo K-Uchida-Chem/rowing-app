@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, FileText, Link, Timer, Ruler, HeartPulse, Activity } from 'lucide-react';
+import { Save, FileText, Link, Timer, Ruler, HeartPulse, Activity, Footprints, Bike } from 'lucide-react';
 import { addCrossTrainingRecord } from '../../db/database';
 
 export default function CrossTrainingLogger() {
@@ -64,7 +64,7 @@ export default function CrossTrainingLogger() {
               : 'bg-transparent border-[rgba(56,189,248,0.06)] text-[var(--color-text-secondary)] hover:border-[rgba(56,189,248,0.15)]'
           }`}
         >
-          🏃 ランニング
+          <Footprints size={16} /> ランニング
         </button>
         <button
           onClick={() => setType('cycling')}
@@ -74,7 +74,7 @@ export default function CrossTrainingLogger() {
               : 'bg-transparent border-[rgba(56,189,248,0.06)] text-[var(--color-text-secondary)] hover:border-[rgba(56,189,248,0.15)]'
           }`}
         >
-          🚴 サイクリング
+          <Bike size={16} /> サイクリング
         </button>
       </div>
 

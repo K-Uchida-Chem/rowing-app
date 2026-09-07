@@ -68,7 +68,7 @@ export default function Sidebar({ activeTab, onTabChange, onOpenSettings }) {
           onClick={onOpenSettings}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-[rgba(56,189,248,0.15)] bg-[rgba(56,189,248,0.05)] text-[var(--color-text-secondary)] text-xs font-medium cursor-pointer transition-all hover:bg-[rgba(56,189,248,0.1)] hover:text-[var(--color-text-primary)] mb-2"
         >
-          <span>⚙️</span> 設定 (API Key)
+          <Settings size={14} /> 設定 (API Key)
         </button>
         <p className="text-[10px] text-[var(--color-text-muted)] text-center">
           Data stored locally in browser
