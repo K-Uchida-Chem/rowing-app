@@ -43,17 +43,47 @@ const HistoryPage = () => {
 
       const newData = {};
       
-      const addToData = (records, type) => {
-        records.forEach(r => {
-          if (!newData[r.date]) newData[r.date] = {};
-          newData[r.date][type] = true;
-        });
+      // Calculate intensity score for each day
+      const addIntensity = (date, points) => {
+        if (!newData[date]) newData[date] = { intensity: 0, types: {} };
+        newData[date].intensity += points;
       };
 
-      addToData(ergo, 'ergo');
-      addToData(cross, 'ergo'); // Map cross to ergo (blue dot) for now, or you can use a separate one
-      addToData(strength, 'strength');
-      addToData(nutrition, 'nutrition');
+      ergo.forEach(r => {
+        let pts = 1;
+        if (r.distance) pts += Math.floor(r.distance / 5000);
+        addIntensity(r.date, pts);
+        newData[r.date].types['ergo'] = true;
+      });
+
+      cross.forEach(r => {
+        let pts = 1;
+        if (r.distance) pts += Math.floor(r.distance / 5);
+        addIntensity(r.date, pts);
+        newData[r.date].types['cross'] = true;
+      });
+
+      strength.forEach(r => {
+        addIntensity(r.date, 1);
+        newData[r.date].types['strength'] = true;
+      });
+
+      nutrition.forEach(r => {
+        // Nutrition doesn't add to training intensity, just mark it
+        if (!newData[r.date]) newData[r.date] = { intensity: 0, types: {} };
+        newData[r.date].types['nutrition'] = true;
+      });
+
+      // Normalize intensity to 0-4 levels
+      Object.keys(newData).forEach(date => {
+        let score = newData[date].intensity;
+        let level = 0;
+        if (score > 0) level = 1;
+        if (score >= 3) level = 2;
+        if (score >= 6) level = 3;
+        if (score >= 10) level = 4;
+        newData[date].level = level;
+      });
 
       setMonthData(newData);
     } catch (error) {

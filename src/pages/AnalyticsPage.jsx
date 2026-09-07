@@ -3,7 +3,8 @@ import ErgoTrendChart from '../components/analytics/ErgoTrendChart';
 import Big3Chart from '../components/analytics/Big3Chart';
 import ZoneDistributionChart from '../components/analytics/ZoneDistributionChart';
 import BodyWeightChart from '../components/analytics/BodyWeightChart';
-import { Activity, Dumbbell, PieChart, Scale } from 'lucide-react';
+import WeeklyReport from '../components/analytics/WeeklyReport';
+import { Activity, Dumbbell, PieChart, Scale, FileText } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState('ergo'); // 'ergo', 'big3', 'zones', 'body'
@@ -14,6 +15,7 @@ export default function AnalyticsPage() {
     { id: 'big3', label: 'BIG3 1RM', icon: <Dumbbell size={16} /> },
     { id: 'zones', label: 'Zone Distribution', icon: <PieChart size={16} /> },
     { id: 'body', label: 'Body Weight', icon: <Scale size={16} /> },
+    { id: 'weekly', label: 'Weekly Report', icon: <FileText size={16} /> },
   ];
 
   return (
@@ -99,6 +101,12 @@ export default function AnalyticsPage() {
               <Scale size={24} /> Body Weight Trend
             </h2>
             <BodyWeightChart timeframe={timeframe} />
+          </div>
+        )}
+
+        {activeTab === 'weekly' && (
+          <div>
+            <WeeklyReport />
           </div>
         )}
 

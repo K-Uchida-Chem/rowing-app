@@ -91,8 +91,20 @@ const CalendarView = ({
           const dateStr = formatDate(date);
           const data = monthData[dateStr] || {};
           
-          const todayStyle = isToday(date) ? { border: '1px solid var(--color-accent-primary)' } : {};
-          const selectedStyle = isSelected(date) ? { backgroundColor: 'var(--color-surface-600)' } : {};
+          const level = data.level || 0;
+          let bgColor = 'rgba(226, 232, 240, 0.03)'; // Empty state
+          if (level === 1) bgColor = 'rgba(56, 189, 248, 0.2)';
+          if (level === 2) bgColor = 'rgba(56, 189, 248, 0.5)';
+          if (level === 3) bgColor = 'rgba(56, 189, 248, 0.8)';
+          if (level >= 4) bgColor = 'var(--color-accent-primary)';
+
+          // If no training but nutrition/bodyWeight etc is tracked, give it a tiny tint
+          if (level === 0 && data.types && Object.keys(data.types).length > 0) {
+            bgColor = 'rgba(56, 189, 248, 0.08)';
+          }
+          
+          const todayStyle = isToday(date) ? { border: '1px solid var(--color-accent-primary)' } : { border: '1px solid rgba(255,255,255,0.03)' };
+          const selectedStyle = isSelected(date) ? { transform: 'scale(1.1)', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' } : {};
           
           return (
             <div 
@@ -100,22 +112,25 @@ const CalendarView = ({
               onClick={() => onSelectDate(date)}
               style={{
                 aspectRatio: '1',
-                padding: '4px',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 cursor: 'pointer',
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: bgColor,
+                transition: 'all 0.2s',
                 ...todayStyle,
                 ...selectedStyle
               }}
+              title={`${dateStr} (Intensity: ${level})`}
             >
-              <span style={{ color: 'var(--color-text-primary)', fontSize: '0.9rem' }}>{date.getDate()}</span>
-              <div style={{ display: 'flex', gap: '2px', marginTop: 'auto', marginBottom: '2px' }}>
-                {data.ergo && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--color-accent-primary)' }}></div>}
-                {data.strength && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--color-accent-warning)' }}></div>}
-                {data.nutrition && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--color-accent-success)' }}></div>}
-              </div>
+              <span style={{ 
+                color: level >= 2 ? '#000' : 'var(--color-text-secondary)', 
+                fontSize: '0.8rem',
+                fontWeight: level >= 2 ? 'bold' : 'normal'
+              }}>
+                {date.getDate()}
+              </span>
             </div>
           );
         })}

@@ -101,6 +101,41 @@ export default function TodayStats() {
   data.cross.forEach((r, i) => { if (r.memo) memos.push(`【${r.type === 'running' ? 'ラン' : 'バイク'}${i+1}】${r.memo}`); });
   data.strength.forEach((r, i) => { if (r.memo) memos.push(`【ウェイト${i+1}】${r.memo}`); });
 
+  // Calculate Readiness Score
+  let readinessScore = null;
+  if (data.condition) {
+    const sleep = data.condition.sleepHours || 7; 
+    const rhr = data.condition.restingHR || 55; 
+    const fatigue = data.condition.fatigueScore || 3;
+
+    const sleepScore = Math.min(100, (sleep / 8) * 100);
+    const rhrScore = Math.max(0, 100 - (rhr - 45) * 2);
+    const fatigueScoreVal = 100 - (fatigue - 1) * 20;
+
+    readinessScore = Math.round((sleepScore * 0.4) + (rhrScore * 0.3) + (fatigueScoreVal * 0.3));
+  }
+
+  const Gauge = ({ score }) => {
+    const radius = 36;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (score / 100) * circumference;
+    let color = 'var(--color-accent-success)';
+    if (score < 70) color = 'var(--color-accent-warning)';
+    if (score < 40) color = '#f87171'; // danger/red
+
+    return (
+      <div className="relative flex items-center justify-center w-24 h-24">
+        <svg className="w-full h-full transform -rotate-90">
+          <circle cx="48" cy="48" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" className="text-[var(--color-surface-600)]" />
+          <circle cx="48" cy="48" r={radius} stroke={color} strokeWidth="8" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+        </svg>
+        <div className="absolute flex flex-col items-center justify-center">
+          <span className="text-2xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">{score}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* 1. 客観データ (Objective Data) */}
@@ -207,24 +242,41 @@ export default function TodayStats() {
         </div>
       </div>
 
-      {/* 2. 主観データ (Subjective Data) */}
+      {/* 2. 主観データ & リカバリー (Subjective Data) */}
       <div className="glass-card p-4">
-        <div className="flex items-center gap-2 mb-5 border-b border-[var(--color-surface-600)] pb-2">
+        <div className="flex items-center gap-2 mb-4 border-b border-[var(--color-surface-600)] pb-2">
           <Brain size={16} className="text-[var(--color-accent-purple)]" />
           <h2 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
-            Subjective Data (主観データ)
+            Readiness & Recovery
           </h2>
         </div>
         
-        <div className="flex flex-col mb-5 px-1">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
-            疲労度スコア
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
-              {data.condition?.fatigueScore || '--'}
+        <div className="flex items-center justify-between mb-5 px-2">
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)]">
+              リカバリースコア
             </span>
-            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">/ 5</span>
+            {readinessScore !== null ? (
+              <Gauge score={readinessScore} />
+            ) : (
+              <div className="w-24 h-24 flex items-center justify-center text-xs text-[var(--color-text-muted)] border-4 border-[var(--color-surface-600)] rounded-full">
+                No Data
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-3">
+             <div className="flex flex-col">
+              <span className="text-[10px] text-[var(--color-text-muted)]">疲労度</span>
+              <span className="text-lg font-bold font-mono text-[var(--color-text-primary)]">{data.condition?.fatigueScore || '-'} / 5</span>
+            </div>
+             <div className="flex flex-col">
+              <span className="text-[10px] text-[var(--color-text-muted)]">安静時心拍</span>
+              <span className="text-lg font-bold font-mono text-[var(--color-text-primary)]">{data.condition?.restingHR || '-'} bpm</span>
+            </div>
+             <div className="flex flex-col">
+              <span className="text-[10px] text-[var(--color-text-muted)]">睡眠</span>
+              <span className="text-lg font-bold font-mono text-[var(--color-text-primary)]">{data.condition?.sleepHours || '-'} h</span>
+            </div>
           </div>
         </div>
 
@@ -245,34 +297,21 @@ export default function TodayStats() {
       {/* 3. 身体データ (Physical Data) */}
       <div className="glass-card p-4">
         <div className="flex items-center gap-2 mb-5 border-b border-[var(--color-surface-600)] pb-2">
-          <Bed size={16} className="text-[var(--color-accent-success)]" />
+          <Scale size={16} className="text-[var(--color-accent-success)]" />
           <h2 className="text-[11px] uppercase tracking-widest font-bold text-[var(--color-text-secondary)]">
             Physical Data (身体データ)
           </h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 px-1">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
-              <Bed size={12} /> 睡眠時間
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
-                {data.condition?.sleepHours || '--'}
-              </span>
-              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">h</span>
-            </div>
+        <div className="flex flex-col px-1">
+          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
+            <Scale size={12} /> 体重
           </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-[var(--color-text-muted)] mb-1">
-              <Scale size={12} /> 体重
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
-                {data.bodyWeight || '--'}
-              </span>
-              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">kg</span>
-            </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold font-mono tracking-tighter text-[var(--color-text-primary)] leading-none">
+              {data.bodyWeight || '--'}
+            </span>
+            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">kg</span>
           </div>
         </div>
       </div>
