@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import db, { lastBackup } from '../db.js';
 import { useEntries } from '../useEntries.js';
+import EntryList from '../EntryList.jsx';
 import {
   KINDS, today, weekStart, formatDate, labelOf, SCHEDULE_ERGO,
 } from '../lib.js';
@@ -121,14 +122,7 @@ export default function TodayPage({ onAdd, onGo, flash, onDismissFlash }) {
         {todays.length === 0 ? (
           <p className="py-6 text-sm text-mute">まだありません。</p>
         ) : (
-          <ul className="divide-y divide-line border-y border-line">
-            {todays.map((e) => (
-              <li key={`${e.kind}-${e.id}`} className="py-3">
-                <p className="text-xs text-mute">{KINDS[e.kind].label}</p>
-                <p className="text-[15px]">{KINDS[e.kind].summary(e)}</p>
-              </li>
-            ))}
-          </ul>
+          <EntryList entries={todays} />
         )}
       </section>
 
