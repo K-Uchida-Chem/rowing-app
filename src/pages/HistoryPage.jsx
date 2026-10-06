@@ -4,7 +4,7 @@ import db from '../db.js';
 import { useEntries } from '../useEntries.js';
 import { KINDS, formatDate } from '../lib.js';
 
-export default function HistoryPage() {
+export default function HistoryPage({ onEdit }) {
   const entries = useEntries();
   const [filter, setFilter] = useState('all');
   if (!entries) return null;
@@ -24,8 +24,9 @@ export default function HistoryPage() {
   return (
     <>
       <h1 className="text-xl font-bold">履歴</h1>
+      <p className="-mt-3 text-xs text-mute">記録をタップすると編集できます。</p>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
         {[['all', { label: 'すべて' }], ...Object.entries(KINDS)].map(([k, v]) => (
           <button
             key={k}
@@ -46,13 +47,18 @@ export default function HistoryPage() {
           <h2 className="label mb-1">{formatDate(g.date)}</h2>
           <ul className="divide-y divide-line">
             {g.items.map((e) => (
-              <li key={`${e.kind}-${e.id}`} className="flex items-start gap-2 py-2.5">
-                <div className="min-w-0 flex-1">
+              <li key={`${e.kind}-${e.id}`} className="flex items-start gap-2">
+                <button onClick={() => onEdit(e)} className="min-w-0 flex-1 py-2.5 text-left">
                   <p className="text-xs text-mute">{KINDS[e.kind].label}</p>
                   <p className="text-sm">{KINDS[e.kind].summary(e)}</p>
+                  {e.intervals?.length > 0 && (
+                    <p className="mt-0.5 text-xs text-mute">
+                      {e.intervals.map((p, i) => `${i + 1}本目 ${p.distance}m ${p.time}`).join(' / ')}
+                    </p>
+                  )}
                   {e.memo && <p className="mt-0.5 text-xs text-mute">{e.memo}</p>}
-                </div>
-                <button onClick={() => remove(e)} aria-label="削除" className="p-1 text-mute active:text-accent">
+                </button>
+                <button onClick={() => remove(e)} aria-label="削除" className="p-2.5 text-mute active:text-accent">
                   <Trash2 size={18} />
                 </button>
               </li>

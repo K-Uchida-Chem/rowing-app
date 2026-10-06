@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { toDateStr } from './lib.js';
 
 // 旧アプリ(RowingAppDB)のエクスポートJSONをそのまま取り込めるよう、テーブル名と項目名を揃えている
 const db = new Dexie('RowingLogDB');
@@ -26,9 +27,13 @@ export const TABLES = [
   'goals',
 ];
 
+const BACKUP_KEY = 'rowing_log_last_backup';
+export const lastBackup = () => localStorage.getItem(BACKUP_KEY);
+
 export async function exportData() {
   const out = {};
   for (const t of TABLES) out[t] = await db[t].toArray();
+  localStorage.setItem(BACKUP_KEY, toDateStr(new Date()));
   return JSON.stringify(out);
 }
 

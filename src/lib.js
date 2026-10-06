@@ -74,6 +74,8 @@ export const KINDS = {
     table: 'ergoRecords',
     label: 'エルゴ',
     requireAny: ['distance', 'time'],
+    menuKeys: ['type', 'distance'],
+    menuLabel: (r) => `${labelOf(ERGO_ZONES, r.type)} ${r.intervals?.length ? intervalLabel(r) : `${r.distance}m`}`,
     fields: [
       { key: 'type', label: '強度ゾーン', type: 'choice', options: ERGO_ZONES, default: 'UT2' },
       { key: 'distance', label: '距離 (m)', type: 'number', presets: [500, 1000, 2000, 5000, 6000, 10000] },
@@ -89,7 +91,7 @@ export const KINDS = {
     summary: (r) =>
       [
         labelOf(ERGO_ZONES, r.type),
-        r.distance && `${r.distance}m`,
+        r.intervals?.length ? intervalLabel(r) : r.distance && `${r.distance}m`,
         r.time,
         r.split && `@${r.split}/500m`,
         r.watts && `${r.watts}W`,
@@ -120,6 +122,8 @@ export const KINDS = {
     table: 'crossTrainingRecords',
     label: 'ラン/バイク',
     requireAny: ['distance', 'time'],
+    menuKeys: ['type', 'distance'],
+    menuLabel: (r) => `${r.type === 'cycling' ? 'バイク' : 'ラン'} ${r.distance}km`,
     fields: [
       {
         key: 'type', label: '種類', type: 'choice', default: 'running',
@@ -128,6 +132,7 @@ export const KINDS = {
       { key: 'distance', label: '距離 (km)', type: 'number', presets: [3, 5, 10, 20] },
       { key: 'time', label: 'タイム(数字だけ入力)', type: 'time' },
       { key: 'avgHR', label: '平均心拍', type: 'number' },
+      { key: 'rpe', label: 'きつさ RPE', type: 'scale', min: 1, max: 10 },
       { key: 'memo', label: 'メモ', type: 'text' },
     ],
     prepare: (r) => r,
@@ -161,6 +166,53 @@ export const KINDS = {
 };
 
 const NUMERIC = ['number', 'stepper', 'scale'];
+
+KINDS.nutrition = {
+  table: 'nutritionRecords',
+  label: '食事',
+  requireAny: ['calories', 'protein'],
+  fields: [
+    {
+      key: 'mealType', label: '区分', type: 'choice', default: 'total',
+      options: [
+        { id: 'breakfast', label: '朝食' }, { id: 'lunch', label: '昼食' }, { id: 'dinner', label: '夕食' },
+        { id: 'snack', label: '間食' }, { id: 'total', label: '1日の合計' },
+      ],
+    },
+    { key: 'calories', label: 'エネルギー (kcal)', type: 'number' },
+    { key: 'protein', label: 'たんぱく質 (g)', type: 'number' },
+    { key: 'fat', label: '脂質 (g)', type: 'number' },
+    { key: 'carbs', label: '炭水化物 (g)', type: 'number' },
+  ],
+  prepare: (r) => r,
+  summary: (r) =>
+    [
+      { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食', total: '合計' }[r.mealType],
+      r.calories && `${r.calories}kcal`,
+      r.protein && `P${r.protein}`,
+      r.fat && `F${r.fat}`,
+      r.carbs && `C${r.carbs}`,
+    ].filter(Boolean).join(' · '),
+};
+
+// インターバルの表示: 同じ距離なら 1000m×4、違えば 4本 計3500m
+export function intervalLabel(r) {
+  const ds = [...new Set(r.intervals.map((p) => p.distance))];
+  return ds.length === 1 ? `${ds[0]}m×${r.intervals.length}` : `${r.intervals.length}本 計${r.distance}m`;
+}
+
+// ─── 目標・週間メニュー ──────────────────────────────
+export const GOAL_TYPES = [
+  { id: '2kTT', label: '2km タイム', unit: '', time: true },
+  { id: 'squat', label: 'スクワット 1RM', unit: 'kg' },
+  { id: 'bench', label: 'ベンチプレス 1RM', unit: 'kg' },
+  { id: 'deadlift', label: 'デッドリフト 1RM', unit: 'kg' },
+  { id: 'bodyWeight', label: '体重', unit: 'kg' },
+];
+export const SCHEDULE_ERGO = [{ id: 'none', label: 'なし' }, ...ERGO_ZONES.filter((z) => z.id !== 'other')];
+export const SCHEDULE_STRENGTH = [
+  { id: 'none', label: 'なし' }, { id: 'Day 1', label: 'Day 1' }, { id: 'Day 2', label: 'Day 2' }, { id: 'Day 3', label: 'Day 3' },
+];
 
 // 数値フィールドは文字列→数値に、空欄は除去
 export function cleanRecord(kind, values) {
