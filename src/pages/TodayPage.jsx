@@ -7,7 +7,7 @@ import {
 } from '../lib.js';
 import { readiness, weeklyLoad, loadWarning, goalProgress } from '../stats.js';
 
-export default function TodayPage({ onAdd, onGo, flash, onDismissFlash }) {
+export default function TodayPage({ onAdd, onGo, onOpenDay, flash, onDismissFlash }) {
   const entries = useEntries();
   const schedule = useLiveQuery(() => db.weeklySchedule.toArray(), []);
   const goals = useLiveQuery(() => db.goals.toArray(), []);
@@ -124,6 +124,9 @@ export default function TodayPage({ onAdd, onGo, flash, onDismissFlash }) {
         ) : (
           <EntryList entries={todays} />
         )}
+        <button onClick={() => onOpenDay(t)} className="mt-3 w-full rounded-md border border-brand py-2.5 text-sm font-semibold text-brand">
+          今日のまとめを見る・画像にする
+        </button>
       </section>
 
       {needBackup && (

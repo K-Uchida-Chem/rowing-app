@@ -16,6 +16,19 @@ db.version(1).stores({
   goals: 'id, type',
 });
 
+// v2: 1日ごとのメモ(dayNotes)を追加
+db.version(2).stores({
+  ergoRecords: '++id, date, type',
+  strengthRecords: '++id, date, exercise',
+  crossTrainingRecords: '++id, date, type',
+  conditionRecords: '++id, date',
+  bodyWeightRecords: '++id, date',
+  nutritionRecords: '++id, date',
+  weeklySchedule: 'dayOfWeek',
+  goals: 'id, type',
+  dayNotes: 'date',
+});
+
 export const TABLES = [
   'ergoRecords',
   'strengthRecords',
@@ -25,6 +38,7 @@ export const TABLES = [
   'nutritionRecords',
   'weeklySchedule',
   'goals',
+  'dayNotes',
 ];
 
 const BACKUP_KEY = 'rowing_log_last_backup';

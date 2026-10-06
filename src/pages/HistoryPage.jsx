@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../db.js';
 import { useEntries } from '../useEntries.js';
 import EntryList from '../EntryList.jsx';
 import { KINDS, formatDate } from '../lib.js';
 
-export default function HistoryPage({ onEdit }) {
+export default function HistoryPage({ onEdit, onOpenDay }) {
   const entries = useEntries();
+  const notes = useLiveQuery(async () => Object.fromEntries((await db.dayNotes.toArray()).map((n) => [n.date, n.note])), []);
   const [filter, setFilter] = useState('all');
   if (!entries) return null;
 
@@ -56,7 +58,13 @@ export default function HistoryPage({ onEdit }) {
                 {month.slice(0, 4)}年{Number(month.slice(5))}月
               </h2>
             )}
-            <h3 className="text-[17px] font-bold tracking-tight">{formatDate(d.date)}</h3>
+            <button onClick={() => onOpenDay(d.date)} className="flex w-full items-baseline justify-between text-left">
+              <h3 className="text-[17px] font-bold tracking-tight">{formatDate(d.date)}</h3>
+              <span className="text-xs text-brand">まとめ ›</span>
+            </button>
+            {notes?.[d.date] && (
+              <p className="whitespace-pre-wrap rounded-md bg-brand-soft px-3 py-2 text-[13px] leading-relaxed">{notes[d.date]}</p>
+            )}
             <EntryList entries={d.items} onEdit={onEdit} onDelete={remove} />
           </section>
         );
