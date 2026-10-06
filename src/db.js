@@ -43,4 +43,29 @@ export async function importData(json) {
   });
 }
 
+// 旧アプリ(RowingAppDB)が同じブラウザに残っていて、新DBが空なら中身をコピーする。旧データは消さない。
+export async function migrateFromLegacy() {
+  try {
+    if (!(await Dexie.exists('RowingAppDB'))) return false;
+    const counts = await Promise.all(TABLES.map((t) => db[t].count()));
+    if (counts.some((n) => n > 0)) return false;
+
+    const old = new Dexie('RowingAppDB');
+    await old.open();
+    const data = {};
+    for (const t of old.tables.map((x) => x.name)) {
+      if (TABLES.includes(t)) data[t] = await old.table(t).toArray();
+    }
+    old.close();
+
+    await db.transaction('rw', TABLES.map((t) => db[t]), async () => {
+      for (const t of TABLES) if (data[t]?.length) await db[t].bulkAdd(data[t]);
+    });
+    return true;
+  } catch (err) {
+    console.warn('旧データの引き継ぎに失敗しました', err);
+    return false;
+  }
+}
+
 export default db;
