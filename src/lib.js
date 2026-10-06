@@ -61,12 +61,22 @@ export const EXERCISES = [
   { id: 'deadlift', label: 'デッドリフト', big3: true },
   { id: 'frontSquat', label: 'フロントスクワット' },
   { id: 'romanianDL', label: 'ルーマニアンDL' },
+  { id: 'legPress', label: 'レッグプレス' },
   { id: 'bentOverRow', label: 'ベントオーバーロウ' },
   { id: 'pullUp', label: '懸垂' },
+  { id: 'powerClean', label: 'パワークリーン' },
+  { id: 'hangClean', label: 'ハングクリーン' },
+  { id: 'abRoller', label: 'アブローラー' },
+  { id: 'sideBend', label: 'サイドベント' },
+  { id: 'russianTwist', label: 'ロシアンツイスト' },
   { id: 'other', label: 'その他' },
 ];
 
 export const labelOf = (list, id) => list.find((x) => x.id === id)?.label ?? id;
+
+// 旧アプリで「種目を追加」した記録は、名前が残っておらず custom-数字 のIDだけが保存されている
+export const exerciseLabel = (id) =>
+  EXERCISES.find((x) => x.id === id)?.label ?? (String(id).startsWith('custom-') ? '追加した種目' : id);
 
 // ─── 記録フォーム定義 (入力画面・履歴の表示を共通化) ──
 export const KINDS = {
@@ -112,9 +122,10 @@ export const KINDS = {
     prepare: (r) => ({ ...r, estimated1RM: r.weight ? epley1RM(r.weight, r.reps || 1) : null }),
     summary: (r) =>
       [
-        labelOf(EXERCISES, r.exercise),
-        r.weight ? `${r.weight}kg` : '自重',
-        `${r.reps ?? '-'}回×${r.sets ?? 1}`,
+        exerciseLabel(r.exercise),
+        r.setList?.length
+          ? r.setList.map((s) => `${s.weight ? `${s.weight}kg` : '自重'}×${s.reps}`).join(', ')
+          : [r.weight ? `${r.weight}kg` : '自重', `${r.reps ?? '-'}回×${r.sets ?? 1}`].join(' · '),
         r.estimated1RM && `推定1RM ${r.estimated1RM}kg`,
       ].filter(Boolean).join(' · '),
   },
@@ -240,3 +251,54 @@ export const normalizeTime = (str) => {
   const sec = parseTime(str);
   return sec == null ? '' : formatTime(sec);
 };
+
+// ─── 旧アプリ(RowingAppDB)形式の読み替え ───────────────
+// 保存データは書き換えず、読み出すときに新アプリの形へそろえる。
+const num = (v) => {
+  const n = Number(v);
+  return v === '' || v == null || !Number.isFinite(n) ? undefined : n;
+};
+
+export function normalizeRecord(kind, r) {
+  switch (kind) {
+    case 'ergo': {
+      const intervals = (Array.isArray(r.intervals) ? r.intervals : [])
+        .map((p) => ({ ...p, distance: num(p.distance), time: normalizeTime(p.time) || undefined }))
+        .filter((p) => p.distance > 0 && p.time);
+      return {
+        ...r,
+        distance: num(r.distance),
+        watts: num(r.watts),
+        rate: num(r.rate),
+        rpe: num(r.rpe),
+        avgHR: num(r.avgHR ?? r.hr),
+        maxHR: num(r.maxHR),
+        intervals: intervals.length ? intervals : undefined,
+      };
+    }
+    case 'strength': {
+      // 旧形式: 1種目1行で sets: [{weight, reps}, ...]
+      if (!Array.isArray(r.sets)) return { ...r, weight: num(r.weight), reps: num(r.reps), sets: num(r.sets) };
+      const list = r.sets.filter((s) => s && Number(s.reps) > 0).map((s) => ({ weight: num(s.weight) || 0, reps: Number(s.reps) }));
+      if (!list.length) return { ...r, sets: 1, setList: [], estimated1RM: null };
+      const top = list.reduce((b, s) => (s.weight > b.weight ? s : b), list[0]);
+      const best1RM = Math.max(0, ...list.filter((s) => s.weight > 0).map((s) => epley1RM(s.weight, s.reps)));
+      return { ...r, setList: list, weight: top.weight || undefined, reps: top.reps, sets: list.length, estimated1RM: best1RM || null };
+    }
+    case 'cross':
+      return { ...r, distance: num(r.distance), avgHR: num(r.avgHR) };
+    case 'condition':
+      return {
+        ...r,
+        sleep: num(r.sleep ?? r.sleepHours),
+        fatigue: num(r.fatigue ?? r.fatigueScore),
+        restingHR: num(r.restingHR),
+      };
+    case 'weight':
+      return { ...r, weight: num(r.weight) };
+    case 'nutrition':
+      return { ...r, calories: num(r.calories), protein: num(r.protein), fat: num(r.fat), carbs: num(r.carbs) };
+    default:
+      return r;
+  }
+}

@@ -1,7 +1,7 @@
 // 集計・判定ロジック(画面に依存しない)
 import db from './db.js';
 import {
-  ERGO_ZONES, EXERCISES, GOAL_TYPES, labelOf, parseTime, formatTime, toDateStr, today, weekStart, formatDate,
+  ERGO_ZONES, EXERCISES, GOAL_TYPES, exerciseLabel, normalizeRecord, parseTime, formatTime, toDateStr, today, weekStart, formatDate,
 } from './lib.js';
 
 export const PB_DISTANCES = [2000, 5000, 6000, 10000];
@@ -50,7 +50,7 @@ export function computePBs(entries) {
 // 保存前に呼び、自己ベストなら表示用メッセージを返す
 export async function pbMessage(kind, rec, excludeId) {
   if (kind === 'ergo' && !rec.intervals?.length && PB_DISTANCES.includes(rec.distance) && parseTime(rec.time)) {
-    const rows = (await db.ergoRecords.toArray()).filter(
+    const rows = (await db.ergoRecords.toArray()).map((r) => normalizeRecord('ergo', r)).filter(
       (r) => r.id !== excludeId && !r.intervals?.length && r.distance === rec.distance && parseTime(r.time)
     );
     if (!rows.length) return `${rec.distance}m 初記録 ${rec.time}`;
@@ -59,11 +59,11 @@ export async function pbMessage(kind, rec, excludeId) {
     if (diff > 0) return `${rec.distance}m 自己ベスト更新 ${rec.time}(−${diff.toFixed(1)}秒)`;
   }
   if (kind === 'strength' && rec.estimated1RM && BIG3.some((x) => x.id === rec.exercise)) {
-    const rows = (await db.strengthRecords.where('exercise').equals(rec.exercise).toArray()).filter(
+    const rows = (await db.strengthRecords.where('exercise').equals(rec.exercise).toArray()).map((r) => normalizeRecord('strength', r)).filter(
       (r) => r.id !== excludeId && r.estimated1RM
     );
     if (rows.length && rec.estimated1RM > Math.max(...rows.map((r) => r.estimated1RM))) {
-      return `${labelOf(EXERCISES, rec.exercise)} 推定1RM 自己ベスト ${rec.estimated1RM}kg`;
+      return `${exerciseLabel(rec.exercise)} 推定1RM 自己ベスト ${rec.estimated1RM}kg`;
     }
   }
   return '';

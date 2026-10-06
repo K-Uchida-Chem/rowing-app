@@ -5,6 +5,7 @@ import { readWorkoutImages } from '../ocr.js';
 import { pbMessage } from '../stats.js';
 import {
   KINDS, cleanRecord, today, toDateStr, formatTimeInput, normalizeTime, calcSplit, parseTime, formatTime,
+  normalizeRecord, exerciseLabel,
 } from '../lib.js';
 
 const initialValues = (kind) =>
@@ -21,7 +22,7 @@ const daysAgo = (n) => {
 
 // 編集時に、フォームが扱わない項目(旧アプリの動画URLなど)は残し、フォームの項目は入れ替える
 function preservedFields(kind, rec) {
-  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'intervals', 'kind']);
+  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'intervals', 'kind', 'setList', 'hr', 'sleepHours', 'fatigueScore']);
   return Object.fromEntries(Object.entries(rec).filter(([k]) => !own.has(k)));
 }
 
@@ -54,7 +55,7 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
     let cancelled = false;
     db.strengthRecords.where('exercise').equals(exercise).toArray().then((rows) => {
       if (cancelled) return;
-      const last = rows.filter((r) => r.date).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
+      const last = rows.filter((r) => r.date).map((r) => normalizeRecord('strength', r)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
       if (!last) return setHint('');
       setValues((cur) => ({ ...cur, weight: last.weight ?? '', reps: last.reps ?? cur.reps, sets: last.sets ?? cur.sets }));
       setHint(`前回(${last.date}): ${last.weight ? `${last.weight}kg` : '自重'} ${last.reps}回×${last.sets}`);
@@ -70,7 +71,7 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
       if (cancelled) return;
       const seen = new Set();
       const out = [];
-      for (const r of rows.filter((r) => r.date).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)) {
+      for (const r of rows.filter((r) => r.date).map((x) => normalizeRecord(kind, x)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)) {
         if (!r.distance) continue;
         const sig = JSON.stringify([def.menuKeys.map((k) => r[k]), r.intervals?.map((p) => p.distance)]);
         if (seen.has(sig)) continue;
@@ -199,11 +200,16 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
         </Field>
 
         {hint && <p className="-mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs text-brand">{hint}</p>}
+        {editing?.setList?.length > 1 && (
+          <p className="-mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs text-brand">
+            旧アプリの「セットごとの記録」です。更新すると、最も重いセットの重量・回数と、セット数にまとまります。
+          </p>
+        )}
 
         {def.fields.map((f) => (
           <Fragment key={f.key}>
             <Field label={f.label} hidden={hideInSingle.includes(f.key)}>
-              <FieldInput f={f} value={values[f.key]} onChange={(v) => set(f.key, v)} />
+              <FieldInput f={withCurrentOption(f, values[f.key])} value={values[f.key]} onChange={(v) => set(f.key, v)} />
             </Field>
 
             {/* ゾーンの直後に 単発/インターバル の切り替え */}
@@ -244,6 +250,13 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
       )}
     </div>
   );
+}
+
+// 選択肢にない値(旧アプリの追加種目など)が入っている記録を編集するときも、その値を選択肢に出す
+function withCurrentOption(f, value) {
+  if (f.type !== 'choice' || !value || f.options.some((o) => o.id === value)) return f;
+  const label = f.key === 'exercise' ? exerciseLabel(value) : String(value);
+  return { ...f, options: [{ id: value, label }, ...f.options] };
 }
 
 function IntervalEditor({ pieces, setPieces }) {
