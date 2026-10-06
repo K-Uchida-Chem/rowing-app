@@ -2,10 +2,12 @@ import { useRef, useState } from 'react';
 import { Download, Upload } from 'lucide-react';
 import { exportData, importData } from '../db.js';
 import { today } from '../lib.js';
+import { getApiKey, setApiKey } from '../ocr.js';
 
 export default function SettingsPage() {
   const fileRef = useRef(null);
   const [msg, setMsg] = useState('');
+  const [apiKey, setApiKeyState] = useState(getApiKey());
 
   const doExport = async () => {
     const blob = new Blob([await exportData()], { type: 'application/json' });
@@ -32,6 +34,25 @@ export default function SettingsPage() {
   return (
     <>
       <h1 className="text-xl font-bold">設定</h1>
+
+      <section className="card space-y-3">
+        <h2 className="text-sm font-semibold text-slate-500">写真読み取り (Gemini APIキー)</h2>
+        <p className="text-xs text-slate-400">
+          エルゴ記録の「写真から入力」に使います。キーはこの端末にだけ保存され、Google 以外には送信されません。
+          キーは Google AI Studio で発行できます。
+        </p>
+        <input
+          className="input"
+          type="password"
+          placeholder="AIza..."
+          value={apiKey}
+          onChange={(e) => {
+            setApiKeyState(e.target.value);
+            setApiKey(e.target.value);
+          }}
+        />
+        {apiKey && <p className="text-xs text-brand">保存済み</p>}
+      </section>
 
       <section className="card space-y-3">
         <h2 className="text-sm font-semibold text-slate-500">バックアップ</h2>

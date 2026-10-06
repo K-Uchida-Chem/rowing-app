@@ -73,13 +73,16 @@ export const KINDS = {
   ergo: {
     table: 'ergoRecords',
     label: 'エルゴ',
+    requireAny: ['distance', 'time'],
     fields: [
-      { key: 'type', label: '強度ゾーン', type: 'select', options: ERGO_ZONES, default: 'UT2' },
-      { key: 'distance', label: '距離 (m)', type: 'number' },
-      { key: 'time', label: 'タイム (例 30:00.0)', type: 'text' },
+      { key: 'type', label: '強度ゾーン', type: 'choice', options: ERGO_ZONES, default: 'UT2' },
+      { key: 'distance', label: '距離 (m)', type: 'number', presets: [500, 1000, 2000, 5000, 6000, 10000] },
+      { key: 'time', label: 'タイム(数字だけ入力: 7053 → 7:05.3)', type: 'time' },
+      { key: 'watts', label: '平均ワット', type: 'number' },
       { key: 'rate', label: 'レート (spm)', type: 'number' },
       { key: 'avgHR', label: '平均心拍', type: 'number' },
-      { key: 'rpe', label: 'きつさ RPE (1-10)', type: 'number' },
+      { key: 'maxHR', label: '最大心拍', type: 'number' },
+      { key: 'rpe', label: 'きつさ RPE', type: 'scale', min: 1, max: 10 },
       { key: 'memo', label: 'メモ', type: 'text' },
     ],
     prepare: (r) => ({ ...r, split: calcSplit(r.distance, r.time) }),
@@ -89,17 +92,19 @@ export const KINDS = {
         r.distance && `${r.distance}m`,
         r.time,
         r.split && `@${r.split}/500m`,
+        r.watts && `${r.watts}W`,
         r.avgHR && `HR${r.avgHR}`,
       ].filter(Boolean).join(' · '),
   },
   strength: {
     table: 'strengthRecords',
     label: '筋トレ',
+    requireAny: ['weight', 'reps'],
     fields: [
-      { key: 'exercise', label: '種目', type: 'select', options: EXERCISES, default: 'squat' },
-      { key: 'weight', label: '重量 (kg・自重は0)', type: 'number' },
-      { key: 'reps', label: '回数', type: 'number' },
-      { key: 'sets', label: 'セット数', type: 'number', default: 1 },
+      { key: 'exercise', label: '種目', type: 'choice', options: EXERCISES, default: 'squat' },
+      { key: 'weight', label: '重量 (kg・自重は空欄)', type: 'number', step: 2.5 },
+      { key: 'reps', label: '回数', type: 'stepper', default: 5, min: 1 },
+      { key: 'sets', label: 'セット数', type: 'stepper', default: 3, min: 1 },
       { key: 'memo', label: 'メモ', type: 'text' },
     ],
     prepare: (r) => ({ ...r, estimated1RM: r.weight ? epley1RM(r.weight, r.reps || 1) : null }),
@@ -114,13 +119,14 @@ export const KINDS = {
   cross: {
     table: 'crossTrainingRecords',
     label: 'ラン/バイク',
+    requireAny: ['distance', 'time'],
     fields: [
       {
-        key: 'type', label: '種類', type: 'select', default: 'running',
+        key: 'type', label: '種類', type: 'choice', default: 'running',
         options: [{ id: 'running', label: 'ランニング' }, { id: 'cycling', label: 'サイクリング' }],
       },
-      { key: 'distance', label: '距離 (km)', type: 'number' },
-      { key: 'time', label: 'タイム (例 30:00)', type: 'text' },
+      { key: 'distance', label: '距離 (km)', type: 'number', presets: [3, 5, 10, 20] },
+      { key: 'time', label: 'タイム(数字だけ入力)', type: 'time' },
       { key: 'avgHR', label: '平均心拍', type: 'number' },
       { key: 'memo', label: 'メモ', type: 'text' },
     ],
@@ -132,9 +138,10 @@ export const KINDS = {
   condition: {
     table: 'conditionRecords',
     label: 'コンディション',
+    requireAny: ['sleep', 'fatigue', 'restingHR'],
     fields: [
-      { key: 'sleep', label: '睡眠時間 (h)', type: 'number' },
-      { key: 'fatigue', label: '疲労度 (1:元気 〜 5:ぐったり)', type: 'number' },
+      { key: 'sleep', label: '睡眠時間 (h)', type: 'number', presets: [5, 6, 7, 8, 9] },
+      { key: 'fatigue', label: '疲労度 (1:元気 〜 5:ぐったり)', type: 'scale', min: 1, max: 5 },
       { key: 'restingHR', label: '安静時心拍', type: 'number' },
       { key: 'memo', label: 'メモ', type: 'text' },
     ],
@@ -146,11 +153,14 @@ export const KINDS = {
   weight: {
     table: 'bodyWeightRecords',
     label: '体重',
-    fields: [{ key: 'weight', label: '体重 (kg)', type: 'number' }],
+    requireAny: ['weight'],
+    fields: [{ key: 'weight', label: '体重 (kg)', type: 'number', step: 0.1 }],
     prepare: (r) => r,
     summary: (r) => `${r.weight}kg`,
   },
 };
+
+const NUMERIC = ['number', 'stepper', 'scale'];
 
 // 数値フィールドは文字列→数値に、空欄は除去
 export function cleanRecord(kind, values) {
@@ -158,7 +168,23 @@ export function cleanRecord(kind, values) {
   for (const f of KINDS[kind].fields) {
     const v = values[f.key];
     if (v === '' || v == null) continue;
-    out[f.key] = f.type === 'number' ? Number(v) : v;
+    out[f.key] = NUMERIC.includes(f.type) ? Number(v) : v;
   }
   return out;
 }
+
+// 数字だけ打てば PM5 風に整形: 7053 → 7:05.3 (右から 1/10秒・秒2桁・分)
+export function formatTimeInput(raw) {
+  const d = String(raw).replace(/\D/g, '').slice(0, 7).replace(/^0+(?=\d{4})/, '');
+  if (!d) return '';
+  const tenth = d.slice(-1);
+  const sec = d.slice(-3, -1).padStart(2, '0');
+  const min = d.slice(0, -3) || '0';
+  return `${min}:${sec}.${tenth}`;
+}
+
+// OCR などで得た "30:00" や "1:02:03.4" を入力欄の形式に揃える
+export const normalizeTime = (str) => {
+  const sec = parseTime(str);
+  return sec == null ? '' : formatTime(sec);
+};
