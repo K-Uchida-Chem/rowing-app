@@ -1,14 +1,5 @@
-import { Waves, Dumbbell, Footprints, HeartPulse, Scale } from 'lucide-react';
 import { useEntries } from '../useEntries.js';
 import { KINDS, today, weekStart, formatDate } from '../lib.js';
-
-const QUICK = [
-  { kind: 'ergo', Icon: Waves },
-  { kind: 'strength', Icon: Dumbbell },
-  { kind: 'cross', Icon: Footprints },
-  { kind: 'condition', Icon: HeartPulse },
-  { kind: 'weight', Icon: Scale },
-];
 
 export default function TodayPage({ onAdd }) {
   const entries = useEntries();
@@ -19,8 +10,7 @@ export default function TodayPage({ onAdd }) {
   const thisWeek = entries.filter((e) => e.date >= ws);
   const todays = entries.filter((e) => e.date === t);
 
-  const ergoWeek = thisWeek.filter((e) => e.kind === 'ergo');
-  const km = ergoWeek.reduce((s, e) => s + (e.distance || 0), 0) / 1000;
+  const km = thisWeek.filter((e) => e.kind === 'ergo').reduce((s, e) => s + (e.distance || 0), 0) / 1000;
   const days = new Set(
     thisWeek.filter((e) => ['ergo', 'strength', 'cross'].includes(e.kind)).map((e) => e.date)
   ).size;
@@ -29,42 +19,41 @@ export default function TodayPage({ onAdd }) {
   return (
     <>
       <header>
-        <p className="text-sm text-slate-500">{formatDate(t)}</p>
-        <h1 className="text-2xl font-bold">今日の練習</h1>
+        <p className="label">{formatDate(t)}</p>
+        <h1 className="text-2xl font-bold tracking-tight">今日</h1>
       </header>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="今週の練習日" value={days} unit="日" />
+      <div className="flex divide-x divide-line border-y border-line py-3">
+        <Stat label="今週の練習" value={days} unit="日" />
         <Stat label="今週のエルゴ" value={km.toFixed(1)} unit="km" />
-        <Stat label="最新体重" value={latestWeight?.weight ?? '-'} unit="kg" />
+        <Stat label="体重" value={latestWeight?.weight ?? '–'} unit="kg" />
       </div>
 
-      <section className="card">
-        <h2 className="mb-3 text-sm font-semibold text-slate-500">クイック記録</h2>
-        <div className="grid grid-cols-5 gap-2">
-          {QUICK.map(({ kind, Icon }) => (
+      <section>
+        <h2 className="label mb-2">記録をつける</h2>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(KINDS).map(([kind, def]) => (
             <button
               key={kind}
               onClick={() => onAdd(kind)}
-              className="flex flex-col items-center gap-1 rounded-xl bg-brand-soft py-3 text-[11px] font-medium text-brand active:opacity-70"
+              className="rounded-md border border-brand px-3.5 py-2 text-sm font-medium text-brand active:bg-brand-soft"
             >
-              <Icon size={22} />
-              {KINDS[kind].label}
+              {def.label}
             </button>
           ))}
         </div>
       </section>
 
-      <section className="card">
-        <h2 className="mb-2 text-sm font-semibold text-slate-500">今日の記録</h2>
+      <section>
+        <h2 className="label mb-1">今日の記録</h2>
         {todays.length === 0 ? (
-          <p className="py-4 text-center text-sm text-slate-400">まだ記録がありません</p>
+          <p className="py-6 text-sm text-mute">まだありません。</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-line border-y border-line">
             {todays.map((e) => (
-              <li key={`${e.kind}-${e.id}`} className="py-2.5">
-                <p className="text-xs font-semibold text-brand">{KINDS[e.kind].label}</p>
-                <p className="text-sm">{KINDS[e.kind].summary(e)}</p>
+              <li key={`${e.kind}-${e.id}`} className="py-3">
+                <p className="text-xs text-mute">{KINDS[e.kind].label}</p>
+                <p className="text-[15px]">{KINDS[e.kind].summary(e)}</p>
               </li>
             ))}
           </ul>
@@ -76,11 +65,11 @@ export default function TodayPage({ onAdd }) {
 
 function Stat({ label, value, unit }) {
   return (
-    <div className="card text-center">
-      <p className="text-[11px] text-slate-500">{label}</p>
-      <p className="mt-1 text-xl font-bold">
+    <div className="flex-1 px-3 first:pl-0">
+      <p className="text-[11px] text-mute">{label}</p>
+      <p className="mt-0.5 text-2xl font-bold tracking-tight">
         {value}
-        <span className="ml-0.5 text-xs font-normal text-slate-400">{unit}</span>
+        <span className="ml-1 text-xs font-normal text-mute">{unit}</span>
       </p>
     </div>
   );

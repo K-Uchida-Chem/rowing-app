@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Home, PlusCircle, CalendarDays, BarChart3, Settings } from 'lucide-react';
 import TodayPage from './pages/TodayPage.jsx';
 import LogPage from './pages/LogPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
@@ -7,11 +6,11 @@ import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 
 const TABS = [
-  { id: 'today', label: '今日', Icon: Home },
-  { id: 'log', label: '記録', Icon: PlusCircle },
-  { id: 'history', label: '履歴', Icon: CalendarDays },
-  { id: 'analytics', label: '分析', Icon: BarChart3 },
-  { id: 'settings', label: '設定', Icon: Settings },
+  { id: 'today', label: '今日' },
+  { id: 'log', label: '記録' },
+  { id: 'history', label: '履歴' },
+  { id: 'analytics', label: '分析' },
+  { id: 'settings', label: '設定' },
 ];
 
 export default function App() {
@@ -25,7 +24,7 @@ export default function App() {
 
   return (
     <div className="mx-auto min-h-dvh max-w-md pb-24">
-      <main className="space-y-4 p-4">
+      <main className="space-y-5 p-5">
         {tab === 'today' && <TodayPage onAdd={openLog} />}
         {tab === 'log' && <LogPage kind={logKind} onKind={setLogKind} onSaved={() => setTab('today')} />}
         {tab === 'history' && <HistoryPage />}
@@ -33,17 +32,16 @@ export default function App() {
         {tab === 'settings' && <SettingsPage />}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)]">
+      <nav className="fixed inset-x-0 bottom-0 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)]">
         <div className="mx-auto flex max-w-md">
-          {TABS.map(({ id, label, Icon }) => (
+          {TABS.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] ${
-                tab === id ? 'font-semibold text-brand' : 'text-slate-400'
+              className={`flex-1 border-t-2 py-3.5 text-sm ${
+                tab === id ? 'border-brand font-bold text-brand' : 'border-transparent text-mute'
               }`}
             >
-              <Icon size={22} />
               {label}
             </button>
           ))}

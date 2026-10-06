@@ -51,7 +51,7 @@ export default function LogPage({ kind, onKind, onSaved }) {
     if (!canSave) return;
     await db[def.table].add({ ...def.prepare(record), date, createdAt: new Date().toISOString() });
     if (andContinue) {
-      setToast('保存しました。続けて入力できます');
+      setToast('保存しました');
       setTimeout(() => setToast(''), 2500);
     } else {
       onSaved();
@@ -94,7 +94,7 @@ export default function LogPage({ kind, onKind, onSaved }) {
           </div>
         </Field>
 
-        {hint && <p className="-mt-2 rounded-lg bg-brand-soft px-3 py-2 text-xs text-brand">{hint}</p>}
+        {hint && <p className="-mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs text-brand">{hint}</p>}
 
         {def.fields.map((f) => (
           <Field key={f.key} label={f.label}>
@@ -102,13 +102,13 @@ export default function LogPage({ kind, onKind, onSaved }) {
           </Field>
         ))}
 
-        {split && <p className="text-sm text-slate-500">500mスプリット: <b className="text-slate-900">{split}</b></p>}
+        {split && <p className="text-sm text-mute">500mスプリット <b className="text-ink">{split}</b></p>}
       </div>
 
       <div className="space-y-2">
         <button className="btn" disabled={!canSave} onClick={() => save(false)}>保存</button>
         <button
-          className="w-full rounded-xl border border-slate-200 bg-white py-3 font-semibold text-slate-700 disabled:opacity-40"
+          className="w-full rounded-md border border-brand py-3 font-semibold text-brand disabled:opacity-35"
           disabled={!canSave}
           onClick={() => save(true)}
         >
@@ -117,7 +117,7 @@ export default function LogPage({ kind, onKind, onSaved }) {
       </div>
 
       {toast && (
-        <div className="fixed inset-x-0 bottom-20 mx-auto w-fit rounded-full bg-slate-900 px-4 py-2 text-sm text-white shadow-lg">
+        <div className="fixed inset-x-0 bottom-20 mx-auto w-fit rounded-md bg-ink px-4 py-2 text-sm text-white">
           {toast}
         </div>
       )}
@@ -145,8 +145,8 @@ function FieldInput({ f, value, onChange }) {
               type="button"
               key={n}
               onClick={() => onChange(value === n ? '' : n)}
-              className={`h-10 flex-1 rounded-lg text-sm font-semibold ${
-                value === n ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600'
+              className={`h-10 flex-1 rounded-md border text-sm font-semibold ${
+                value === n ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'
               }`}
             >
               {n}
@@ -227,18 +227,18 @@ function PhotoImport({ onResult }) {
   };
 
   return (
-    <div className="card space-y-2">
+    <div className="space-y-2">
       <button
         type="button"
         onClick={() => ref.current.click()}
         disabled={busy}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-soft py-3 font-semibold text-brand disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-md border border-brand py-3 font-semibold text-brand disabled:opacity-60"
       >
         {busy ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
-        {busy ? '読み取り中…' : '写真から入力(PM5・ウォッチ)'}
+        {busy ? '読み取り中…' : '写真から読み取る(PM5・ウォッチ)'}
       </button>
       <input ref={ref} type="file" accept="image/*" multiple hidden onChange={onFiles} />
-      <p className="text-xs text-slate-400">PM5の画面とウォッチのスクショを、まとめて選べます。</p>
+      <p className="text-xs text-mute">PM5の画面とウォッチのスクショは、まとめて選べます。</p>
       {msg && <p className={`text-sm ${msg.ok ? 'text-brand' : 'text-red-600'}`}>{msg.text}</p>}
     </div>
   );
@@ -249,8 +249,8 @@ function Chip({ active, onClick, children }) {
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full px-3.5 py-2 text-sm font-medium ${
-        active ? 'bg-brand text-white' : 'bg-slate-100 text-slate-600'
+      className={`shrink-0 rounded-md border px-3.5 py-2 text-sm font-medium ${
+        active ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'
       }`}
     >
       {children}
@@ -260,7 +260,7 @@ function Chip({ active, onClick, children }) {
 
 function StepButton({ onClick, children }) {
   return (
-    <button type="button" onClick={onClick} className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 active:bg-slate-200">
+    <button type="button" onClick={onClick} className="flex h-11 w-11 items-center justify-center rounded-md border border-line bg-white active:bg-brand-soft">
       {children}
     </button>
   );
@@ -269,7 +269,7 @@ function StepButton({ onClick, children }) {
 function Field({ label, children }) {
   return (
     <div>
-      <span className="mb-1.5 block text-xs font-medium text-slate-500">{label}</span>
+      <span className="label mb-1.5 block">{label}</span>
       {children}
     </div>
   );

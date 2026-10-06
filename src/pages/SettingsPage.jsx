@@ -36,8 +36,8 @@ export default function SettingsPage() {
       <h1 className="text-xl font-bold">設定</h1>
 
       <section className="card space-y-3">
-        <h2 className="text-sm font-semibold text-slate-500">写真読み取り (Gemini APIキー)</h2>
-        <p className="text-xs text-slate-400">
+        <h2 className="label">写真読み取り (Gemini APIキー)</h2>
+        <p className="text-xs text-mute">
           エルゴ記録の「写真から入力」に使います。キーはこの端末にだけ保存され、Google 以外には送信されません。
           キーは Google AI Studio で発行できます。
         </p>
@@ -55,8 +55,8 @@ export default function SettingsPage() {
       </section>
 
       <section className="card space-y-3">
-        <h2 className="text-sm font-semibold text-slate-500">バックアップ</h2>
-        <p className="text-xs text-slate-400">
+        <h2 className="label">バックアップ</h2>
+        <p className="text-xs text-mute">
           データはこの端末のブラウザ内にだけ保存されます。定期的に書き出しておくと安心です。
           旧アプリの書き出しファイルもそのまま取り込めます。
         </p>
@@ -64,7 +64,7 @@ export default function SettingsPage() {
           <Download size={18} /> データを書き出す
         </button>
         <button
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 font-semibold text-slate-700 active:bg-slate-50"
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-brand py-3 font-semibold text-brand active:bg-brand-soft"
           onClick={() => fileRef.current.click()}
         >
           <Upload size={18} /> データを取り込む

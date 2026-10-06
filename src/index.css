@@ -1,43 +1,60 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #0f766e;
-  --color-brand-soft: #ccfbf1;
+  --color-brand: #1b365d;      /* ネイビー */
+  --color-brand-soft: #e8ecf2;
+  --color-accent: #c2410c;     /* 差し色: 自己ベスト・警告など */
+  --color-paper: #f6f4ef;
+  --color-line: #dcd8cf;
+  --color-ink: #1c1c1c;
+  --color-mute: #6f6b63;
 }
 
 body {
-  background: #f4f6f8;
-  color: #0f172a;
-  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  font-feature-settings: "palt";
+  font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
 }
 
+/* カードは使わず、罫線で区切るだけの面 */
 .card {
-  background: #fff;
-  border-radius: 1rem;
-  padding: 1rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+  border-top: 1px solid var(--color-line);
+  padding: 1rem 0 0.25rem;
 }
 
 .input {
   width: 100%;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  border-radius: 0.75rem;
+  border: 1px solid var(--color-line);
+  background: #fff;
+  border-radius: 6px;
   padding: 0.65rem 0.75rem;
   font-size: 1rem;
 }
 .input:focus {
   outline: 2px solid var(--color-brand);
-  background: #fff;
+  outline-offset: -1px;
 }
 
 .btn {
   background: var(--color-brand);
   color: #fff;
   font-weight: 600;
-  border-radius: 0.75rem;
-  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
   width: 100%;
 }
+.btn:disabled { opacity: 0.35; }
 .btn:active { opacity: 0.85; }
+
+.label {
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--color-mute);
+}
+
+/* 横スクロール行のスクロールバーを隠す */
+.overflow-x-auto { scrollbar-width: none; }
+.overflow-x-auto::-webkit-scrollbar { display: none; }

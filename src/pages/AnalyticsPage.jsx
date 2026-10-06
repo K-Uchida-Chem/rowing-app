@@ -7,8 +7,8 @@ import { today, weekStart, parseTime, formatTime, formatDate, EXERCISES } from '
 
 Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend);
 
-const BRAND = '#0f766e';
-const COLORS = ['#0f766e', '#f97316', '#6366f1'];
+const BRAND = '#1b365d';
+const COLORS = ['#1b365d', '#c2410c', '#8a8578'];
 const baseOptions = { responsive: true, plugins: { legend: { display: false } } };
 
 // 直近 n 週間の週開始日
@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
           options={baseOptions}
           data={{
             labels: weeks,
-            datasets: [{ data: weeks.map((w) => +weekKm[w].toFixed(1)), backgroundColor: BRAND, borderRadius: 6 }],
+            datasets: [{ data: weeks.map((w) => +weekKm[w].toFixed(1)), backgroundColor: BRAND, borderRadius: 2 }],
           }}
         />
       </Panel>
@@ -74,7 +74,7 @@ export default function AnalyticsPage() {
           }}
           data={{
             labels: twoK.map((e) => formatDate(e.date)),
-            datasets: [{ data: twoK.map((e) => parseTime(e.time)), borderColor: BRAND, backgroundColor: BRAND, tension: 0.2 }],
+            datasets: [{ data: twoK.map((e) => parseTime(e.time)), borderColor: BRAND, backgroundColor: BRAND, tension: 0 }],
           }}
         />
       </Panel>
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
               borderColor: b.color,
               backgroundColor: b.color,
               spanGaps: true,
-              tension: 0.2,
+              tension: 0,
               data: big3Dates.map((d) => b.rows.filter((r) => r.date === d).reduce((m, r) => Math.max(m, r.estimated1RM), 0) || null),
             })),
           }}
@@ -101,7 +101,7 @@ export default function AnalyticsPage() {
           options={{ ...baseOptions, scales: { y: { suggestedMin: 50 } } }}
           data={{
             labels: weights.map((e) => formatDate(e.date)),
-            datasets: [{ data: weights.map((e) => e.weight), borderColor: BRAND, backgroundColor: BRAND, tension: 0.2 }],
+            datasets: [{ data: weights.map((e) => e.weight), borderColor: BRAND, backgroundColor: BRAND, tension: 0 }],
           }}
         />
       </Panel>
@@ -112,8 +112,8 @@ export default function AnalyticsPage() {
 function Panel({ title, empty, hint, children }) {
   return (
     <section className="card">
-      <h2 className="mb-3 text-sm font-semibold text-slate-500">{title}</h2>
-      {empty ? <p className="py-6 text-center text-sm text-slate-400">{hint}</p> : children}
+      <h2 className="label mb-3">{title}</h2>
+      {empty ? <p className="py-6 text-center text-sm text-mute">{hint}</p> : children}
     </section>
   );
 }

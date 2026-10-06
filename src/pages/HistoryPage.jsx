@@ -30,8 +30,8 @@ export default function HistoryPage() {
           <button
             key={k}
             onClick={() => setFilter(k)}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium ${
-              filter === k ? 'bg-brand text-white' : 'bg-white text-slate-600 shadow-sm'
+            className={`shrink-0 rounded-md border px-3.5 py-1.5 text-sm font-medium ${
+              filter === k ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'
             }`}
           >
             {v.label}
@@ -39,20 +39,20 @@ export default function HistoryPage() {
         ))}
       </div>
 
-      {groups.length === 0 && <p className="py-10 text-center text-sm text-slate-400">記録がありません</p>}
+      {groups.length === 0 && <p className="py-10 text-center text-sm text-mute">記録がありません。</p>}
 
       {groups.map((g) => (
         <section key={g.date} className="card">
-          <h2 className="mb-1 text-sm font-semibold text-slate-500">{formatDate(g.date)}</h2>
-          <ul className="divide-y divide-slate-100">
+          <h2 className="label mb-1">{formatDate(g.date)}</h2>
+          <ul className="divide-y divide-line">
             {g.items.map((e) => (
               <li key={`${e.kind}-${e.id}`} className="flex items-start gap-2 py-2.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-brand">{KINDS[e.kind].label}</p>
+                  <p className="text-xs text-mute">{KINDS[e.kind].label}</p>
                   <p className="text-sm">{KINDS[e.kind].summary(e)}</p>
-                  {e.memo && <p className="mt-0.5 text-xs text-slate-400">{e.memo}</p>}
+                  {e.memo && <p className="mt-0.5 text-xs text-mute">{e.memo}</p>}
                 </div>
-                <button onClick={() => remove(e)} aria-label="削除" className="p-1 text-slate-300 active:text-red-500">
+                <button onClick={() => remove(e)} aria-label="削除" className="p-1 text-mute active:text-accent">
                   <Trash2 size={18} />
                 </button>
               </li>
