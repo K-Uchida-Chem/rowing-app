@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #0f766e;
+  --color-brand-soft: #ccfbf1;
+}
+
+body {
+  background: #f4f6f8;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 1rem;
+}
+.input:focus {
+  outline: 2px solid var(--color-brand);
+  background: #fff;
+}
+
+.btn {
+  background: var(--color-brand);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.8rem 1rem;
+  width: 100%;
+}
+.btn:active { opacity: 0.85; }
