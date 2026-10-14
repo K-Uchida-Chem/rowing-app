@@ -9,6 +9,36 @@ const MODEL_KEY = 'rowing_log_gemini_model';
 export const getApiKey = () => localStorage.getItem(KEY) || '';
 export const setApiKey = (k) => localStorage.setItem(KEY, k.trim());
 
+// Gemini API(Google AI Studio)のキーは「AIza」で始まる。形が違うものは、送る前に気づけるようにする。
+// (Google Cloud / Vertex AI のキー「AQ.…」を送ると、401「OAuth 2 access token が必要」になる)
+export function keyProblem(key) {
+  const k = key.trim();
+  if (!k) return '';
+  if (/\s/.test(k)) return 'キーの途中に空白や改行が入っています。貼り付け直してください。';
+  if (k.startsWith('AQ.')) return 'このキーは Gemini API 用ではありません(Google Cloud / Vertex AI 用の形式です)。Google AI Studio で「AIza」から始まるキーを作ってください。';
+  if (k.startsWith('ya29.')) return 'これはアクセストークンで、APIキーではありません。Google AI Studio で「AIza」から始まるキーを作ってください。';
+  if (/^(sk-|sk_|xai-)/.test(k)) return 'これは Gemini 以外のサービスのキーです。Google AI Studio で「AIza」から始まるキーを作ってください。';
+  if (!k.startsWith('AIza')) return 'Gemini のキーは通常「AIza」から始まります。Google AI Studio で作ったキーか確認してください。';
+  return '';
+}
+
+/** 設定画面の「接続テスト」。キーが通るかを、画像を送らずに確かめる */
+export async function testApiKey() {
+  const key = getApiKey();
+  if (!key) throw new Error('APIキーを入力してください。');
+  const problem = keyProblem(key);
+  if (problem) throw new Error(problem);
+  let res;
+  try {
+    res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': key } });
+  } catch {
+    throw new Error('Google に接続できませんでした。電波の状態を確認してください。');
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw describeError(res.status, body.error?.message, '接続テスト');
+  return true;
+}
+
 // 長辺 1280px の JPEG に縮小して送信サイズを抑える(縮小できない形式はそのまま送る)
 async function toInlineData(file) {
   let blob = file;
@@ -48,6 +78,8 @@ For interval workouts use the overall totals/averages, not a single piece.`;
 async function generate(parts, generationConfig) {
   const key = getApiKey();
   if (!key) throw new Error('APIキーが未設定です。「設定」画面で Gemini APIキーを入力してください。');
+  const problem = keyProblem(key);
+  if (problem) throw new Error(problem);
 
   // 前回使えたモデルを先頭にして、使えないとき(モデルが無い・新規利用者には提供終了)だけ次を試す
   const remembered = localStorage.getItem(MODEL_KEY);
@@ -85,7 +117,8 @@ async function generate(parts, generationConfig) {
 function describeError(status, message = '', model) {
   const tail = ` [${status} ${model}${message ? `: ${message.slice(0, 120)}` : ''}]`;
   if (status === 400 && /api key/i.test(message)) return new Error(`APIキーが正しくありません。設定画面で入れ直してください。${tail}`);
-  if (status === 401 || status === 403) return new Error(`このAPIキーでは使えません。キーが有効か、Gemini API が有効なプロジェクトのキーか確認してください。${tail}`);
+  if (status === 401) return new Error(`このキーは Gemini API では認証できません。Google AI Studio(aistudio.google.com/apikey)で作る「AIza」から始まるキーを使ってください。${tail}`);
+  if (status === 403) return new Error(`このAPIキーでは使えません。キーの制限(利用できるAPIやサイトの指定)や、Gemini API が有効なプロジェクトのキーかを確認してください。${tail}`);
   if (status === 429) return new Error(`無料枠の利用上限に達しています。しばらく待ってから試してください。${tail}`);
   if (status === 404) return new Error(`使えるモデルが見つかりませんでした。アプリの更新が必要かもしれません。${tail}`);
   if (status >= 500) return new Error(`Google 側で一時的なエラーが起きています。少し待って試してください。${tail}`);
