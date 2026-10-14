@@ -27,7 +27,14 @@ export function setsText(r) {
 /** @returns {{title: string, detail: string, lines: string[]}} */
 export function rowOf(e) {
   const lines = [];
-  if (e.intervals?.length) lines.push(e.intervals.map((p, i) => `${i + 1}本目 ${p.time}`).join('  '));
+  // インターバルは1本ずつ1行。距離メニューならタイム、時間メニューなら距離を見せる
+  if (e.intervals?.length) {
+    e.intervals.forEach((p, i) =>
+      lines.push(
+        join([`${i + 1}本目`, e.intervalBy === 'time' ? `${p.distance}m` : p.time, p.split && `@${p.split}`, p.watts && `${p.watts}W`, p.rate && `${p.rate}spm`], '  ')
+      )
+    );
+  }
   if (e.memo) lines.push(e.memo);
 
   switch (e.kind) {

@@ -1,7 +1,7 @@
 // 集計・判定ロジック(画面に依存しない)
 import db from './db.js';
 import {
-  ERGO_ZONES, EXERCISES, GOAL_TYPES, exerciseLabel, normalizeRecord, parseTime, formatTime, toDateStr, today, weekStart, formatDate,
+  ERGO_ZONES, EXERCISES, GOAL_TYPES, exerciseLabel, normalizeRecord, parseTime, wattsFromSplit, formatTime, toDateStr, today, weekStart, formatDate,
 } from './lib.js';
 
 export const PB_DISTANCES = [2000, 5000, 6000, 10000];
@@ -157,7 +157,7 @@ export function goalProgress(goal, entries) {
 const fmtGoal = (def, v) => (def.time ? formatTime(v) : `${Math.round(v * 10) / 10}${def.unit}`);
 
 // ─── ペース換算 ──────────────────────────────────────
-export const wattsFromSplit = (sec500) => 2.8 / Math.pow(sec500 / 500, 3);
+export { wattsFromSplit };
 
 // Paul's law: 距離が2倍になるごとに 500m ペースが約5秒遅くなる。あくまで目安
 export function predict2k(distance, timeStr) {

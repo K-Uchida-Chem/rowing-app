@@ -29,6 +29,20 @@ db.version(2).stores({
   dayNotes: 'date',
 });
 
+// v3: ヘルスケアから取り込んだワークアウト(心拍つき)。記録に結びつけるまで status = 'pending'
+db.version(3).stores({
+  ergoRecords: '++id, date, type',
+  strengthRecords: '++id, date, exercise',
+  crossTrainingRecords: '++id, date, type',
+  conditionRecords: '++id, date',
+  bodyWeightRecords: '++id, date',
+  nutritionRecords: '++id, date',
+  weeklySchedule: 'dayOfWeek',
+  goals: 'id, type',
+  dayNotes: 'date',
+  workouts: 'id, date, status',
+});
+
 export const TABLES = [
   'ergoRecords',
   'strengthRecords',
@@ -39,6 +53,7 @@ export const TABLES = [
   'weeklySchedule',
   'goals',
   'dayNotes',
+  'workouts',
 ];
 
 const BACKUP_KEY = 'rowing_log_last_backup';

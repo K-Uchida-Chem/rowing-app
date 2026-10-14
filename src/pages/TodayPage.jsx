@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db, { lastBackup } from '../db.js';
 import { useEntries } from '../useEntries.js';
@@ -5,12 +6,30 @@ import EntryList from '../EntryList.jsx';
 import {
   KINDS, today, weekStart, formatDate, labelOf, SCHEDULE_ERGO,
 } from '../lib.js';
+import { importFromClipboard, importFromHash, dismissWorkout, workoutSummary } from '../workouts.js';
 import { readiness, weeklyLoad, loadWarning, goalProgress } from '../stats.js';
 
-export default function TodayPage({ onAdd, onGo, onOpenDay, flash, onDismissFlash }) {
+export default function TodayPage({ onAdd, onWorkout, onGo, onOpenDay, flash, onDismissFlash }) {
   const entries = useEntries();
   const schedule = useLiveQuery(() => db.weeklySchedule.toArray(), []);
   const goals = useLiveQuery(() => db.goals.toArray(), []);
+  const pending = useLiveQuery(
+    async () => (await db.workouts.where('status').equals('pending').toArray()).sort((a, b) => b.start.localeCompare(a.start)),
+    []
+  );
+  const [hkMsg, setHkMsg] = useState('');
+
+  const runImport = async (fn) => {
+    try {
+      const r = await fn();
+      if (r) setHkMsg(r.added ? `${r.added}件のワークアウトを取り込みました` : '新しいワークアウトはありません');
+    } catch (err) {
+      setHkMsg(`取り込めませんでした: ${err.message}`);
+    }
+  };
+  // ショートカットから URL(#hk=...)で開かれたときは、そのまま取り込む
+  useEffect(() => { runImport(importFromHash); }, []);
+
   if (!entries) return null;
 
   const t = today();
@@ -51,6 +70,29 @@ export default function TodayPage({ onAdd, onGo, onOpenDay, flash, onDismissFlas
           {flash}
         </button>
       )}
+
+      {(pending?.length > 0 || hkMsg) && (
+        <section>
+          <h2 className="label mb-1">未記入のワークアウト</h2>
+          {hkMsg && <p className="mb-2 text-xs text-mute">{hkMsg}</p>}
+          <ul className="divide-y divide-line border-y border-line">
+            {(pending ?? []).slice(0, 8).map((w) => (
+              <li key={w.id} className="flex items-center gap-2 py-2.5">
+                <button onClick={() => onWorkout(w)} className="min-w-0 flex-1 text-left">
+                  <p className="text-xs text-mute">{formatDate(w.date)}</p>
+                  <p className="truncate text-sm font-medium">{workoutSummary(w)}</p>
+                </button>
+                <button onClick={() => onWorkout(w)} className="rounded-md border border-brand px-3 py-1.5 text-sm font-medium text-brand">記入</button>
+                <button onClick={() => dismissWorkout(w.id)} className="px-2 py-1.5 text-xs text-mute">使わない</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <button onClick={() => runImport(importFromClipboard)} className="w-full rounded-md border border-dashed border-line px-3 py-2.5 text-left text-sm text-mute">
+        ヘルスケアのワークアウトを取り込む(コピーしたデータを貼り付け)
+      </button>
 
       {planText && (
         <section>

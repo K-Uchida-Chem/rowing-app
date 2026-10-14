@@ -33,6 +33,9 @@ export function formatTime(sec, decimals = 1) {
   return `${m}:${s}`;
 }
 
+// 500mスプリット(秒)から平均ワット。Concept2 の換算式
+export const wattsFromSplit = (sec500) => 2.8 / Math.pow(sec500 / 500, 3);
+
 // 距離とタイムから500mスプリットを計算
 export function calcSplit(distance, timeStr) {
   const sec = parseTime(timeStr);
@@ -90,14 +93,19 @@ export const KINDS = {
       { key: 'type', label: '強度ゾーン', type: 'choice', options: ERGO_ZONES, default: 'UT2' },
       { key: 'distance', label: '距離 (m)', type: 'number', presets: [500, 1000, 2000, 5000, 6000, 10000] },
       { key: 'time', label: 'タイム(数字だけ入力: 7053 → 7:05.3)', type: 'time' },
-      { key: 'watts', label: '平均ワット', type: 'number' },
       { key: 'rate', label: 'レート (spm)', type: 'number' },
-      { key: 'avgHR', label: '平均心拍', type: 'number' },
+      { key: 'avgHR', label: '平均心拍(全体)', type: 'number' },
       { key: 'maxHR', label: '最大心拍', type: 'number' },
       { key: 'rpe', label: 'きつさ RPE', type: 'scale', min: 1, max: 10 },
       { key: 'memo', label: 'メモ', type: 'text' },
     ],
-    prepare: (r) => ({ ...r, split: calcSplit(r.distance, r.time) }),
+    // スプリットと平均ワットは自動計算。インターバルのワットは区間ごとの時間加重平均を入力画面で計算済み
+    prepare: (r) => {
+      const split = calcSplit(r.distance, r.time);
+      const sec500 = parseTime(split);
+      const watts = r.intervals?.length ? r.watts : sec500 ? Math.round(wattsFromSplit(sec500)) : r.watts;
+      return { ...r, split, ...(watts != null && { watts }) };
+    },
     summary: (r) =>
       [
         labelOf(ERGO_ZONES, r.type),
@@ -208,8 +216,20 @@ KINDS.nutrition = {
 
 // インターバルの表示: 同じ距離なら 1000m×4、違えば 4本 計3500m
 export function intervalLabel(r) {
+  const n = r.intervals.length;
+  if (r.intervalBy === 'time') {
+    const ts = [...new Set(r.intervals.map((p) => Math.round((parseTime(p.time) || 0) * 10)))];
+    return ts.length === 1 ? `${timeMenuLabel(ts[0] / 10)}×${n}` : `${n}本 計${r.time}`;
+  }
   const ds = [...new Set(r.intervals.map((p) => p.distance))];
-  return ds.length === 1 ? `${ds[0]}m×${r.intervals.length}` : `${r.intervals.length}本 計${r.distance}m`;
+  return ds.length === 1 ? `${ds[0]}m×${n}` : `${n}本 計${r.distance}m`;
+}
+
+// 秒数を「4分」「1分30秒」「30秒」の形に
+export function timeMenuLabel(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec - m * 60);
+  return `${m ? `${m}分` : ''}${s ? `${s}秒` : ''}` || '0秒';
 }
 
 // ─── 目標・週間メニュー ──────────────────────────────
@@ -263,7 +283,7 @@ export function normalizeRecord(kind, r) {
   switch (kind) {
     case 'ergo': {
       const intervals = (Array.isArray(r.intervals) ? r.intervals : [])
-        .map((p) => ({ ...p, distance: num(p.distance), time: normalizeTime(p.time) || undefined }))
+        .map((p) => ({ ...p, distance: num(p.distance), rate: num(p.rate), time: normalizeTime(p.time) || undefined }))
         .filter((p) => p.distance > 0 && p.time);
       return {
         ...r,

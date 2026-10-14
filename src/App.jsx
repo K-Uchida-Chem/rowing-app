@@ -6,6 +6,8 @@ import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import DayPage from './pages/DayPage.jsx';
 import { today } from './lib.js';
+import ErrorBoundary from './ErrorBoundary.jsx';
+import { ACTIVITIES } from './workouts.js';
 
 const TABS = [
   { id: 'today', label: '今日' },
@@ -21,16 +23,28 @@ export default function App() {
   const [editing, setEditing] = useState(null); // 編集中の記録 ({kind, id, ...})
   const [editFrom, setEditFrom] = useState('history'); // 編集を終えたあと戻る画面
   const [dayDate, setDayDate] = useState(today()); // 1日のまとめで開いている日
+  const [workout, setWorkout] = useState(null); // ヘルスケアのワークアウトから記録するとき、その元データ
   const [flash, setFlash] = useState(''); // 保存直後に今日の画面へ出す一言(自己ベストなど)
 
   const go = (id) => {
-    if (id !== 'log') setEditing(null);
+    if (id !== 'log') {
+      setEditing(null);
+      setWorkout(null);
+    }
     setTab(id);
   };
 
   const openLog = (kind) => {
     setEditing(null);
+    setWorkout(null);
     setLogKind(kind);
+    setTab('log');
+  };
+
+  const openFromWorkout = (w) => {
+    setEditing(null);
+    setWorkout(w);
+    setLogKind(ACTIVITIES[w.activity]?.kind ?? 'ergo');
     setTab('log');
   };
 
@@ -49,13 +63,16 @@ export default function App() {
   return (
     <div className="mx-auto min-h-dvh max-w-md pb-24">
       <main className="space-y-5 p-5">
-        {tab === 'today' && <TodayPage onAdd={openLog} onGo={go} onOpenDay={openDay} flash={flash} onDismissFlash={() => setFlash('')} />}
+        {/* 画面を切り替えたらエラー表示を解除する(key) */}
+        <ErrorBoundary key={`${tab}-${logKind}`}>
+        {tab === 'today' && <TodayPage onAdd={openLog} onWorkout={openFromWorkout} onGo={go} onOpenDay={openDay} flash={flash} onDismissFlash={() => setFlash('')} />}
         {tab === 'log' && (
           <LogPage
-            key={editing ? `${editing.kind}-${editing.id}` : 'new'}
+            key={editing ? `${editing.kind}-${editing.id}` : workout ? `w-${workout.id}` : 'new'}
             kind={logKind}
             onKind={setLogKind}
             editing={editing}
+            workout={workout}
             onSaved={(msg) => {
               setFlash(msg || '');
               go(editing ? editFrom : 'today');
@@ -66,6 +83,7 @@ export default function App() {
         {tab === 'day' && <DayPage key={dayDate} date={dayDate} onDate={setDayDate} onEdit={openEdit} />}
         {tab === 'analytics' && <AnalyticsPage />}
         {tab === 'settings' && <SettingsPage />}
+        </ErrorBoundary>
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)]">

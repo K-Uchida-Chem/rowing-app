@@ -1,15 +1,42 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Camera, Minus, Plus, Loader2, X } from 'lucide-react';
 import db from '../db.js';
 import { readWorkoutImages } from '../ocr.js';
 import { pbMessage } from '../stats.js';
+import HrChart from '../HrChart.jsx';
+import { ACTIVITIES, workoutSummary } from '../workouts.js';
 import {
   KINDS, cleanRecord, today, toDateStr, formatTimeInput, normalizeTime, calcSplit, parseTime, formatTime,
-  normalizeRecord, exerciseLabel,
+  normalizeRecord, exerciseLabel, wattsFromSplit, timeMenuLabel,
 } from '../lib.js';
 
 const initialValues = (kind) =>
   Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, f.default ?? '']));
+
+// ヘルスケアのワークアウトから分かる項目を入力欄に入れる(メニュー名や強度ゾーンは後から本人が選ぶ)
+function workoutValues(kind, w) {
+  const v = initialValues(kind);
+  const sec = w.duration ? Math.round(w.duration) : null;
+  if (kind === 'ergo' || kind === 'cross') {
+    if (w.distance) v.distance = String(kind === 'cross' ? Math.round(w.distance / 100) / 10 : Math.round(w.distance));
+    if (sec) v.time = formatTime(sec);
+    if (w.avgHR) v.avgHR = String(w.avgHR);
+  }
+  if (kind === 'ergo' && w.maxHR) v.maxHR = String(w.maxHR);
+  if (kind === 'cross' && ACTIVITIES[w.activity]?.cross) v.type = ACTIVITIES[w.activity].cross;
+  return v;
+}
+
+const toPiece = (p) => ({
+  distance: String(p.distance ?? ''),
+  time: p.time ?? '',
+  rate: p.rate != null ? String(p.rate) : '',
+});
+
+// メニューの「決めてある側」(距離メニューなら距離、時間メニューなら時間)を入れた n 本ぶんの行
+const makePieces = (by, spec, n) =>
+  Array.from({ length: n }, () => ({ distance: by === 'distance' ? spec : '', time: by === 'time' ? spec : '', rate: '' }));
 
 const valuesFrom = (kind, rec) =>
   Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, rec[f.key] ?? f.default ?? '']));
@@ -26,24 +53,27 @@ function preservedFields(kind, rec) {
   return Object.fromEntries(Object.entries(rec).filter(([k]) => !own.has(k)));
 }
 
-export default function LogPage({ kind, onKind, onSaved, editing }) {
+export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   const isEdit = !!editing;
   const def = KINDS[kind];
-  const [date, setDate] = useState(editing?.date ?? today());
-  const [values, setValues] = useState(() => (editing ? valuesFrom(kind, editing) : initialValues(kind)));
+  const [date, setDate] = useState(editing?.date ?? workout?.date ?? today());
+  const [values, setValues] = useState(() => (editing ? valuesFrom(kind, editing) : workout ? workoutValues(kind, workout) : initialValues(kind)));
   const [mode, setMode] = useState(editing?.intervals?.length ? 'intervals' : 'single');
-  const [pieces, setPieces] = useState(() =>
-    (editing?.intervals ?? []).map((p) => ({ distance: String(p.distance ?? ''), time: p.time ?? '' }))
-  );
+  // 距離メニュー(距離を決めてタイムを入れる) / 時間メニュー(時間を決めて距離を入れる)
+  const [by, setBy] = useState(editing?.intervalBy === 'time' ? 'time' : 'distance');
+  const [pieces, setPieces] = useState(() => (editing?.intervals ?? []).map(toPiece));
   const [hint, setHint] = useState('');
   const [toast, setToast] = useState('');
   const [recent, setRecent] = useState([]);
+  const linked = useLiveQuery(() => (editing?.workoutId ? db.workouts.get(editing.workoutId) : undefined), [editing?.workoutId]);
+  const shown = workout ?? linked;
   const set = (key, v) => setValues((cur) => ({ ...cur, [key]: v }));
 
   const switchKind = (k) => {
     onKind(k);
     setValues(initialValues(k));
     setMode('single');
+    setBy('distance');
     setPieces([]);
     setHint('');
   };
@@ -91,8 +121,11 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
       time: '',
     }));
     if (r.intervals?.length) {
+      // 前回のメニューの「決めてある側」だけ引き継ぎ、結果(タイム・距離・レート)は空にする
+      const menuBy = r.intervalBy === 'time' ? 'time' : 'distance';
       setMode('intervals');
-      setPieces(r.intervals.map((p) => ({ distance: String(p.distance), time: '' })));
+      setBy(menuBy);
+      setPieces(r.intervals.map((p) => ({ distance: menuBy === 'distance' ? String(p.distance) : '', time: menuBy === 'time' ? p.time : '', rate: '' })));
     } else {
       setMode('single');
     }
@@ -100,27 +133,50 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
 
   const toIntervals = () => {
     setMode('intervals');
-    if (!pieces.length) setPieces([{ distance: String(values.distance || ''), time: '' }]);
+    if (!pieces.length) {
+      setBy('distance');
+      setPieces(makePieces('distance', String(values.distance || 1000), 4));
+    }
   };
 
-  // フォーム内容を保存用レコードにする
+  // 入力が揃った区間だけを集計する。スプリットとワットはタイムと距離から自動計算
   const donePieces = pieces
-    .filter((p) => Number(p.distance) > 0 && parseTime(p.time))
-    .map((p) => ({
-      distance: Number(p.distance),
-      time: normalizeTime(p.time),
-      split: calcSplit(Number(p.distance), p.time),
-    }));
+    .filter((p) => Number(p.distance) > 0 && parseTime(p.time) > 0)
+    .map((p) => {
+      const distance = Number(p.distance);
+      const sec = parseTime(p.time);
+      return {
+        distance,
+        sec,
+        time: normalizeTime(p.time),
+        split: calcSplit(distance, p.time),
+        watts: Math.round(wattsFromSplit((sec / distance) * 500)),
+        rate: Number(p.rate) > 0 ? Number(p.rate) : undefined,
+      };
+    });
+  const totalSec = donePieces.reduce((s, p) => s + p.sec, 0);
+  const totalDist = donePieces.reduce((s, p) => s + p.distance, 0);
+  // 全体のワット・レートは、各区間の値を時間で重み付けした平均
+  const weighted = (key) => {
+    const ps = donePieces.filter((p) => p[key] != null);
+    const t = ps.reduce((s, p) => s + p.sec, 0);
+    return t ? Math.round(ps.reduce((s, p) => s + p[key] * p.sec, 0) / t) : undefined;
+  };
 
   const buildRecord = () => {
     const rec = cleanRecord(kind, values);
     if (kind === 'ergo' && mode === 'intervals') {
       delete rec.distance;
       delete rec.time;
+      delete rec.rate;
       if (donePieces.length) {
-        rec.intervals = donePieces;
-        rec.distance = donePieces.reduce((s, p) => s + p.distance, 0);
-        rec.time = formatTime(donePieces.reduce((s, p) => s + parseTime(p.time), 0));
+        rec.intervals = donePieces.map(({ sec, rate, ...p }) => ({ ...p, ...(rate != null && { rate }) }));
+        rec.intervalBy = by;
+        rec.distance = totalDist;
+        rec.time = formatTime(totalSec);
+        rec.watts = weighted('watts');
+        const rate = weighted('rate');
+        if (rate != null) rec.rate = rate;
       }
     }
     return rec;
@@ -138,7 +194,10 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
         ...preservedFields(kind, editing), ...rec, date, id: editing.id, updatedAt: new Date().toISOString(),
       });
     } else {
-      await db[def.table].add({ ...rec, date, createdAt: new Date().toISOString() });
+      const id = await db[def.table].add({
+        ...rec, date, ...(workout && { workoutId: workout.id }), createdAt: new Date().toISOString(),
+      });
+      if (workout) await db.workouts.update(workout.id, { status: 'linked', linkedKind: kind, linkedId: id });
     }
     if (andContinue) {
       setToast(pb || '保存しました');
@@ -155,7 +214,6 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
       ...cur,
       ...(scan.distance != null && { distance: String(Math.round(scan.distance)) }),
       ...(scan.time && { time: normalizeTime(scan.time) }),
-      ...(scan.watts != null && { watts: String(Math.round(scan.watts)) }),
       ...(scan.rate != null && { rate: String(Math.round(scan.rate)) }),
       ...(scan.avgHR != null && { avgHR: String(Math.round(scan.avgHR)) }),
       ...(scan.maxHR != null && { maxHR: String(Math.round(scan.maxHR)) }),
@@ -163,7 +221,8 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
   };
 
   const split = kind === 'ergo' && mode === 'single' ? calcSplit(record.distance, record.time) : '';
-  const hideInSingle = kind === 'ergo' && mode === 'intervals' ? ['distance', 'time'] : [];
+  const hideInSingle = kind === 'ergo' && mode === 'intervals' ? ['distance', 'time', 'rate'] : [];
+  const singleWatts = split ? Math.round(wattsFromSplit(parseTime(split))) : null;
 
   return (
     <div className="space-y-4">
@@ -177,7 +236,16 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
         </div>
       )}
 
-      {kind === 'ergo' && !isEdit && <PhotoImport onResult={applyScan} />}
+      {shown && (
+        <div className="card space-y-2">
+          <p className="label">ヘルスケアのワークアウト</p>
+          <p className="text-sm">{workoutSummary(shown)}</p>
+          <HrChart series={shown.hr} />
+          {workout && <p className="text-xs text-mute">時間・距離・心拍は入れてあります。メニュー(強度ゾーンなど)を選んで保存してください。</p>}
+        </div>
+      )}
+
+      {kind === 'ergo' && !isEdit && !workout && <PhotoImport onResult={applyScan} />}
 
       {recent.length > 0 && (
         <div>
@@ -222,17 +290,21 @@ export default function LogPage({ kind, onKind, onSaved, editing }) {
               </Field>
             )}
             {kind === 'ergo' && f.key === 'type' && mode === 'intervals' && (
-              <IntervalEditor pieces={pieces} setPieces={setPieces} />
+              <IntervalEditor by={by} setBy={setBy} pieces={pieces} setPieces={setPieces} done={donePieces} totals={{ dist: totalDist, sec: totalSec, watts: weighted('watts'), rate: weighted('rate') }} />
             )}
           </Fragment>
         ))}
 
-        {split && <p className="text-sm text-mute">500mスプリット <b className="text-ink">{split}</b></p>}
+        {split && (
+          <p className="text-sm text-mute">
+            500mスプリット <b className="text-ink">{split}</b> · 平均 <b className="text-ink">{singleWatts}W</b>
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
         <button className="btn" disabled={!canSave} onClick={() => save(false)}>{isEdit ? '更新' : '保存'}</button>
-        {!isEdit && (
+        {!isEdit && !workout && (
           <button
             className="w-full rounded-md border border-brand py-3 font-semibold text-brand disabled:opacity-35"
             disabled={!canSave}
@@ -259,52 +331,133 @@ function withCurrentOption(f, value) {
   return { ...f, options: [{ id: value, label }, ...f.options] };
 }
 
-function IntervalEditor({ pieces, setPieces }) {
+const DISTANCE_PRESETS = [250, 500, 750, 1000, 1500, 2000, 3000];
+const TIME_PRESETS = [60, 120, 180, 240, 300, 480, 600, 1200];
+
+function IntervalEditor({ by, setBy, pieces, setPieces, done, totals }) {
+  const target = by === 'distance' ? 'distance' : 'time'; // メニューで決めてある側
+  const result = by === 'distance' ? 'time' : 'distance'; // 漕いだ結果として入れる側
+  const spec = pieces[0]?.[target] ?? '';
   const update = (i, patch) => setPieces((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
-  const done = pieces.filter((p) => Number(p.distance) > 0 && parseTime(p.time));
-  const totalDist = done.reduce((s, p) => s + Number(p.distance), 0);
-  const totalSec = done.reduce((s, p) => s + parseTime(p.time), 0);
+
+  // メニュー(決めてある側)を全区間に反映。入力済みの結果とレートは残す
+  const setSpec = (v) => setPieces((ps) => ps.map((p) => ({ ...p, [target]: v })));
+  const setCount = (n) =>
+    setPieces((ps) =>
+      n <= ps.length ? ps.slice(0, n) : [...ps, ...makePieces(by, spec, n - ps.length)]
+    );
+  // 距離⇔時間を切り替えたら、決める側を空にして作り直す(意味が変わるため)
+  const switchBy = (next) => {
+    if (next === by) return;
+    setBy(next);
+    setPieces(makePieces(next, next === 'distance' ? '1000' : '4:00.0', pieces.length || 4));
+  };
+
+  const headTarget = by === 'distance' ? '距離 (m)' : '時間';
+  const headResult = by === 'distance' ? 'タイム' : '距離 (m)';
 
   return (
-    <div className="space-y-2 rounded-md border border-line bg-white p-3">
-      <div className="grid grid-cols-[1.5rem_1fr_1fr_2rem] items-center gap-2 text-xs text-mute">
-        <span /> <span>距離 (m)</span> <span>タイム</span> <span />
+    <div className="space-y-3 rounded-md border border-line bg-white p-3">
+      <div className="flex gap-2">
+        <Chip active={by === 'distance'} onClick={() => switchBy('distance')}>距離メニュー</Chip>
+        <Chip active={by === 'time'} onClick={() => switchBy('time')}>時間メニュー</Chip>
       </div>
-      {pieces.map((p, i) => (
-        <div key={i} className="grid grid-cols-[1.5rem_1fr_1fr_2rem] items-center gap-2">
-          <span className="text-sm text-mute">{i + 1}</span>
-          <input
-            className="input"
-            type="number"
-            inputMode="numeric"
-            value={p.distance}
-            onChange={(e) => update(i, { distance: e.target.value })}
-          />
+      <p className="text-xs text-mute">
+        {by === 'distance' ? '距離を決めて、1本ごとのタイムを入れます。(例: 1000m × 4本)' : '時間を決めて、1本ごとに進んだ距離を入れます。(例: 4分 × 5本)'}
+      </p>
+
+      <div className="space-y-2">
+        <span className="label block">{by === 'distance' ? '1本の距離' : '1本の時間'}</span>
+        {by === 'distance' ? (
+          <input className="input" type="number" inputMode="numeric" value={spec} onChange={(e) => setSpec(e.target.value)} />
+        ) : (
           <input
             className="input font-semibold"
             inputMode="numeric"
             placeholder="0:00.0"
-            value={p.time}
-            onChange={(e) => update(i, { time: formatTimeInput(e.target.value) })}
+            value={spec}
+            onChange={(e) => setSpec(formatTimeInput(e.target.value))}
           />
-          <button type="button" aria-label="この本を削除" onClick={() => setPieces((ps) => ps.filter((_, j) => j !== i))} className="p-1 text-mute">
-            <X size={18} />
-          </button>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {by === 'distance'
+            ? DISTANCE_PRESETS.map((d) => (
+                <Chip key={d} active={Number(spec) === d} onClick={() => setSpec(String(d))}>{d}</Chip>
+              ))
+            : TIME_PRESETS.map((t) => (
+                <Chip key={t} active={parseTime(spec) === t} onClick={() => setSpec(formatTime(t))}>{timeMenuLabel(t)}</Chip>
+              ))}
         </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => setPieces((ps) => [...ps, { distance: ps[ps.length - 1]?.distance ?? '', time: '' }])}
-        className="w-full rounded-md border border-dashed border-brand py-2 text-sm font-medium text-brand"
-      >
-        ＋ 1本追加(同じ距離)
-      </button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <span className="label">本数</span>
+        <StepButton onClick={() => setCount(Math.max(1, pieces.length - 1))}><Minus size={20} /></StepButton>
+        <span className="w-10 text-center text-2xl font-bold">{pieces.length}</span>
+        <StepButton onClick={() => setCount(pieces.length + 1)}><Plus size={20} /></StepButton>
+      </div>
+
+      <div className="grid grid-cols-[1.25rem_1fr_1fr_3.6rem_1.5rem] items-center gap-1.5 text-xs text-mute">
+        <span /> <span>{headTarget}</span> <span>{headResult}</span> <span>レート</span> <span />
+      </div>
+      {pieces.map((p, i) => {
+        const sec = parseTime(p.time);
+        const ok = Number(p.distance) > 0 && sec > 0;
+        const split = ok ? calcSplit(Number(p.distance), p.time) : '';
+        const watts = ok ? Math.round(wattsFromSplit((sec / Number(p.distance)) * 500)) : null;
+        return (
+          <div key={i} className="space-y-0.5">
+            <div className="grid grid-cols-[1.25rem_1fr_1fr_3.6rem_1.5rem] items-center gap-1.5">
+              <span className="text-sm text-mute">{i + 1}</span>
+              <PieceField kind={target} value={p[target]} onChange={(v) => update(i, { [target]: v })} />
+              <PieceField kind={result} value={p[result]} onChange={(v) => update(i, { [result]: v })} />
+              <input
+                className="input !px-2"
+                type="number"
+                inputMode="numeric"
+                aria-label={`${i + 1}本目のレート`}
+                placeholder="spm"
+                value={p.rate}
+                onChange={(e) => update(i, { rate: e.target.value })}
+              />
+              <button
+                type="button"
+                aria-label={`${i + 1}本目を削除`}
+                onClick={() => setPieces((ps) => (ps.length > 1 ? ps.filter((_, j) => j !== i) : ps))}
+                className="p-0.5 text-mute"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {ok && <p className="pl-6 text-xs text-mute">@{split}/500m · {watts}W</p>}
+          </div>
+        );
+      })}
+
       {done.length > 0 && (
-        <p className="text-sm text-mute">
-          {done.length}本 合計 <b className="text-ink">{totalDist}m</b> {formatTime(totalSec)} 平均 <b className="text-ink">{calcSplit(totalDist, formatTime(totalSec))}</b>/500m
+        <p className="border-t border-line pt-2 text-sm text-mute">
+          {done.length}本 合計 <b className="text-ink">{totals.dist}m</b> {formatTime(totals.sec)} 平均{' '}
+          <b className="text-ink">{calcSplit(totals.dist, formatTime(totals.sec))}</b>/500m ·{' '}
+          <b className="text-ink">{totals.watts}W</b>
+          {totals.rate != null && <> · レート <b className="text-ink">{totals.rate}</b></>}
         </p>
       )}
     </div>
+  );
+}
+
+// 区間の入力欄。時間は数字だけ打てば 0:00.0 に整形、距離は数字
+function PieceField({ kind, value, onChange }) {
+  return kind === 'time' ? (
+    <input
+      className="input font-semibold !px-2"
+      inputMode="numeric"
+      placeholder="0:00.0"
+      value={value}
+      onChange={(e) => onChange(formatTimeInput(e.target.value))}
+    />
+  ) : (
+    <input className="input !px-2" type="number" inputMode="numeric" placeholder="m" value={value} onChange={(e) => onChange(e.target.value)} />
   );
 }
 

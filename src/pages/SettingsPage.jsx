@@ -18,9 +18,45 @@ export default function SettingsPage() {
       <h1 className="text-xl font-bold">設定</h1>
       <ScheduleSection />
       <GoalSection />
+      <HealthSection />
       <ApiKeySection />
       <BackupSection />
     </>
+  );
+}
+
+// ─── ヘルスケア連携 ──────────────────────────────────
+const SAMPLE = `[{
+  "start": "2026-10-07T06:30:00+09:00",
+  "end": "2026-10-07T07:15:00+09:00",
+  "type": "Rowing",
+  "distance": 8000,
+  "kcal": 420,
+  "hr": [{ "t": "2026-10-07T06:30:10+09:00", "v": 118 }]
+}]`;
+
+function HealthSection() {
+  const counts = useLiveQuery(async () => {
+    const all = await db.workouts.toArray();
+    return { pending: all.filter((w) => w.status === 'pending').length, dismissed: all.filter((w) => w.status === 'dismissed').length };
+  }, []);
+  return (
+    <section className="card space-y-2">
+      <h2 className="label">ヘルスケア連携</h2>
+      <p className="text-xs text-mute">
+        iPhoneのショートカットでワークアウトと心拍をまとめ、このアプリに取り込みます。取り込んだものは「今日」画面の「未記入のワークアウト」に並び、タップするとメニューを記入できます。同じワークアウトを2回取り込んでも重複しません。
+      </p>
+      <ol className="list-decimal space-y-1 pl-5 text-xs text-mute">
+        <li>ショートカットで「ヘルスケアサンプルを検索」(ワークアウト、直近1日)を作る</li>
+        <li>各ワークアウトの開始〜終了の「心拍数」を検索し、下の形式のJSONテキストにまとめる</li>
+        <li>日付は「ISO 8601」形式で書式化する</li>
+        <li>JSONを「クリップボードにコピー」(オートメーションの「ワークアウト終了時」などで自動実行)</li>
+        <li>このアプリの「今日」画面で「取り込む」を押す</li>
+      </ol>
+      <pre className="overflow-x-auto rounded-md bg-white p-2 text-[11px] leading-snug">{SAMPLE}</pre>
+      <p className="text-xs text-mute">type は Rowing / Running / Cycling / Strength など。distance はメートル。end の代わりに duration(秒)も使えます。</p>
+      {counts && <p className="text-xs">未記入 {counts.pending}件 · 使わない {counts.dismissed}件</p>}
+    </section>
   );
 }
 
