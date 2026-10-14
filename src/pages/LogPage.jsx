@@ -1,8 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Camera, Minus, Plus, Loader2, X } from 'lucide-react';
+import { Minus, Plus, X } from 'lucide-react';
 import db from '../db.js';
-import { readWorkoutImages } from '../ocr.js';
 import { pbMessage } from '../stats.js';
 import HrChart from '../HrChart.jsx';
 import { ACTIVITIES, workoutSummary } from '../workouts.js';
@@ -207,19 +206,6 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
     }
   };
 
-  // 写真から読み取った値を入力欄に反映(エルゴのみ)
-  const applyScan = (scan) => {
-    setMode('single');
-    setValues((cur) => ({
-      ...cur,
-      ...(scan.distance != null && { distance: String(Math.round(scan.distance)) }),
-      ...(scan.time && { time: normalizeTime(scan.time) }),
-      ...(scan.rate != null && { rate: String(Math.round(scan.rate)) }),
-      ...(scan.avgHR != null && { avgHR: String(Math.round(scan.avgHR)) }),
-      ...(scan.maxHR != null && { maxHR: String(Math.round(scan.maxHR)) }),
-    }));
-  };
-
   const split = kind === 'ergo' && mode === 'single' ? calcSplit(record.distance, record.time) : '';
   const hideInSingle = kind === 'ergo' && mode === 'intervals' ? ['distance', 'time', 'rate'] : [];
   const singleWatts = split ? Math.round(wattsFromSplit(parseTime(split))) : null;
@@ -244,8 +230,6 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
           {workout && <p className="text-xs text-mute">時間・距離・心拍は入れてあります。メニュー(強度ゾーンなど)を選んで保存してください。</p>}
         </div>
       )}
-
-      {kind === 'ergo' && !isEdit && !workout && <PhotoImport onResult={applyScan} />}
 
       {recent.length > 0 && (
         <div>
@@ -538,46 +522,6 @@ function FieldInput({ f, value, onChange }) {
     default:
       return <input className="input" value={value} onChange={(e) => onChange(e.target.value)} />;
   }
-}
-
-function PhotoImport({ onResult }) {
-  const ref = useRef(null);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);
-
-  const onFiles = async (e) => {
-    const files = [...e.target.files];
-    e.target.value = '';
-    if (!files.length) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const result = await readWorkoutImages(files);
-      onResult(result);
-      setMsg({ ok: true, text: `読み取りました(${Object.keys(result).length}項目)。内容を確認して保存してください。` });
-    } catch (err) {
-      setMsg({ ok: false, text: err.message });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        onClick={() => ref.current.click()}
-        disabled={busy}
-        className="flex w-full items-center justify-center gap-2 rounded-md border border-brand py-3 font-semibold text-brand disabled:opacity-60"
-      >
-        {busy ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
-        {busy ? '読み取り中…' : '写真から読み取る(PM5・ウォッチ)'}
-      </button>
-      <input ref={ref} type="file" accept="image/*" multiple hidden onChange={onFiles} />
-      <p className="text-xs text-mute">PM5の画面とウォッチのスクショは、まとめて選べます。</p>
-      {msg && <p className={`text-sm ${msg.ok ? 'text-brand' : 'text-accent'}`}>{msg.text}</p>}
-    </div>
-  );
 }
 
 function Chip({ active, onClick, children }) {

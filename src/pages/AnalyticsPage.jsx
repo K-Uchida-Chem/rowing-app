@@ -4,7 +4,7 @@ import {
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import { useEntries } from '../useEntries.js';
-import { reviewWeek } from '../ocr.js';
+import { reviewWeek } from '../gemini.js';
 import {
   parseTime, formatTime, formatDate, formatTimeInput, EXERCISES, ERGO_ZONES, labelOf,
 } from '../lib.js';

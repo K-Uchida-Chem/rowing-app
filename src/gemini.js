@@ -1,4 +1,4 @@
-// Gemini の REST API を直接呼ぶ(写真の読み取り・週次レビュー)。
+// Gemini の REST API を直接呼ぶ(週次の振り返り)。
 // APIキーはこの端末の localStorage にだけ保存し、Google 以外には送らない。
 const KEY = 'rowing_log_gemini_key';
 // 提供されているモデルは時期によって変わる(古いモデルは新しい利用者に出さなくなる)ため、
@@ -38,41 +38,6 @@ export async function testApiKey() {
   if (!res.ok) throw describeError(res.status, body.error?.message, '接続テスト');
   return true;
 }
-
-// 長辺 1280px の JPEG に縮小して送信サイズを抑える(縮小できない形式はそのまま送る)
-async function toInlineData(file) {
-  let blob = file;
-  try {
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bmp.width * scale);
-    canvas.height = Math.round(bmp.height * scale);
-    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
-    blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
-  } catch {
-    /* そのまま送る */
-  }
-  const data = await new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result.split(',')[1]);
-    r.onerror = rej;
-    r.readAsDataURL(blob);
-  });
-  return { mime_type: blob.type || 'image/jpeg', data };
-}
-
-const PROMPT = `These images show a rowing workout: a Concept2 PM5 monitor and/or a smartwatch workout summary.
-Read the values and return ONLY a JSON object with these keys (null when not visible):
-{
-  "distance": total distance in meters (number),
-  "time": total time as "M:SS.T" or "H:MM:SS.T" (string),
-  "watts": average watts (number),
-  "rate": average stroke rate in strokes/min (number),
-  "avgHR": average heart rate in bpm (number),
-  "maxHR": maximum heart rate in bpm (number)
-}
-For interval workouts use the overall totals/averages, not a single piece.`;
 
 // Gemini を呼んで本文を返す。キー未設定や API エラーは日本語メッセージの Error にする
 async function generate(parts, generationConfig) {
@@ -123,21 +88,6 @@ function describeError(status, message = '', model) {
   if (status === 404) return new Error(`使えるモデルが見つかりませんでした。アプリの更新が必要かもしれません。${tail}`);
   if (status >= 500) return new Error(`Google 側で一時的なエラーが起きています。少し待って試してください。${tail}`);
   return new Error(`読み取りに失敗しました。${tail}`);
-}
-
-/** @param {File[]} files @returns {Promise<{distance?:number,time?:string,watts?:number,rate?:number,avgHR?:number,maxHR?:number}>} */
-export async function readWorkoutImages(files) {
-  const images = await Promise.all(files.map(toInlineData));
-  const text = await generate(
-    [{ text: PROMPT }, ...images.map((inline_data) => ({ inline_data }))],
-    { responseMimeType: 'application/json' }
-  );
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('画像から数値を読み取れませんでした。画面全体が写った写真で試してください。');
-  const parsed = JSON.parse(match[0]);
-
-  // null / 空を除いた値だけ返す
-  return Object.fromEntries(Object.entries(parsed).filter(([, v]) => v != null && v !== ''));
 }
 
 const REVIEW_PROMPT = `あなたはボート(ローイング)部のトレーニング記録を見るアシスタントです。

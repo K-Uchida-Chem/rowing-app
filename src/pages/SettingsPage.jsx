@@ -5,7 +5,7 @@ import db, { exportData, importData, lastBackup } from '../db.js';
 import {
   today, formatTimeInput, GOAL_TYPES, SCHEDULE_ERGO, SCHEDULE_STRENGTH,
 } from '../lib.js';
-import { getApiKey, setApiKey, keyProblem, testApiKey } from '../ocr.js';
+import { getApiKey, setApiKey, keyProblem, testApiKey } from '../gemini.js';
 
 const DAYS = [
   { id: 1, name: '月' }, { id: 2, name: '火' }, { id: 3, name: '水' }, { id: 4, name: '木' },
@@ -186,7 +186,7 @@ function ApiKeySection() {
     <section className="card space-y-3">
       <h2 className="label">AI機能 (Gemini APIキー)</h2>
       <p className="text-xs text-mute">
-        エルゴの「写真から読み取る」と、分析の「AIに振り返ってもらう」に使います。キーはこの端末にだけ保存され、
+        分析の「AIに振り返ってもらう」に使います。キーはこの端末にだけ保存され、
         Google 以外には送信されません。キーは Google AI Studio (aistudio.google.com/apikey) で作る「AIza」から始まるものを使ってください。
       </p>
       <input
