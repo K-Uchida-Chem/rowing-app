@@ -4,7 +4,6 @@ import {
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import { useEntries } from '../useEntries.js';
-import { reviewWeek } from '../gemini.js';
 import {
   parseTime, formatTime, formatDate, formatTimeInput, EXERCISES, ERGO_ZONES, labelOf,
 } from '../lib.js';
@@ -192,31 +191,14 @@ function PbRow({ label, value, date }) {
 }
 
 function WeeklyReport({ entries }) {
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const report = weekReport(entries);
 
-  const ask = async () => {
-    setBusy(true);
-    setError('');
-    setText('');
-    try {
-      setText(await reviewWeek(report));
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const share = async () => {
-    const body = text ? `${report}\n\n${text}` : report;
     try {
-      if (navigator.share) await navigator.share({ text: body });
+      if (navigator.share) await navigator.share({ text: report });
       else {
-        await navigator.clipboard.writeText(body);
+        await navigator.clipboard.writeText(report);
         setNote('コピーしました');
         setTimeout(() => setNote(''), 2000);
       }
@@ -229,17 +211,9 @@ function WeeklyReport({ entries }) {
     <section className="card space-y-3">
       <h2 className="label">この1週間</h2>
       <pre className="whitespace-pre-wrap font-[inherit] text-sm leading-relaxed">{report}</pre>
-      {text && <p className="rounded-md bg-brand-soft px-3 py-2.5 text-sm leading-relaxed">{text}</p>}
-      {error && <p className="text-sm text-accent">{error}</p>}
-      <div className="flex gap-2">
-        <button onClick={ask} disabled={busy} className="flex-1 rounded-md border border-brand py-2.5 text-sm font-semibold text-brand disabled:opacity-50">
-          {busy ? '作成中…' : 'AIに振り返ってもらう'}
-        </button>
-        <button onClick={share} className="flex-1 rounded-md border border-brand py-2.5 text-sm font-semibold text-brand">
-          {note || '共有・コピー'}
-        </button>
-      </div>
-      <p className="text-xs text-mute">AIの振り返りは、上のレポートの文章だけを Google (Gemini) に送ります。</p>
+      <button onClick={share} className="w-full rounded-md border border-brand py-2.5 text-sm font-semibold text-brand">
+        {note || '共有・コピー'}
+      </button>
     </section>
   );
 }

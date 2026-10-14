@@ -5,7 +5,6 @@ import db, { exportData, importData, lastBackup } from '../db.js';
 import {
   today, formatTimeInput, GOAL_TYPES, SCHEDULE_ERGO, SCHEDULE_STRENGTH,
 } from '../lib.js';
-import { getApiKey, setApiKey, keyProblem, testApiKey } from '../gemini.js';
 
 const DAYS = [
   { id: 1, name: '月' }, { id: 2, name: '火' }, { id: 3, name: '水' }, { id: 4, name: '木' },
@@ -19,7 +18,6 @@ export default function SettingsPage() {
       <ScheduleSection />
       <GoalSection />
       <HealthSection />
-      <ApiKeySection />
       <BackupSection />
     </>
   );
@@ -158,61 +156,6 @@ function GoalSection() {
       <button className="w-full rounded-md border border-brand py-2.5 font-semibold text-brand disabled:opacity-35" disabled={!target} onClick={add}>
         目標を追加
       </button>
-    </section>
-  );
-}
-
-// ─── APIキー ────────────────────────────────────────
-function ApiKeySection() {
-  const [apiKey, setApiKeyState] = useState(getApiKey());
-  const [test, setTest] = useState(null); // { ok, text }
-  const [testing, setTesting] = useState(false);
-  const problem = keyProblem(apiKey);
-
-  const runTest = async () => {
-    setTesting(true);
-    setTest(null);
-    try {
-      await testApiKey();
-      setTest({ ok: true, text: '接続できました。このキーは使えます。' });
-    } catch (e) {
-      // キーの形の警告と同じ文章なら、重ねて出さない
-      setTest(e.message === problem ? null : { ok: false, text: e.message });
-    } finally {
-      setTesting(false);
-    }
-  };
-  return (
-    <section className="card space-y-3">
-      <h2 className="label">AI機能 (Gemini APIキー)</h2>
-      <p className="text-xs text-mute">
-        分析の「AIに振り返ってもらう」に使います。キーはこの端末にだけ保存され、
-        Google 以外には送信されません。キーは Google AI Studio (aistudio.google.com/apikey) で作る「AIza」から始まるものを使ってください。
-      </p>
-      <input
-        className="input"
-        type="password"
-        placeholder="AIza..."
-        value={apiKey}
-        onChange={(e) => {
-          setApiKeyState(e.target.value);
-          setApiKey(e.target.value);
-          setTest(null);
-        }}
-      />
-      {problem ? (
-        <p className="text-xs text-accent">{problem}</p>
-      ) : (
-        apiKey && <p className="text-xs text-brand">保存済み</p>
-      )}
-      <button
-        className="w-full rounded-md border border-brand py-2.5 font-semibold text-brand disabled:opacity-35"
-        disabled={!apiKey || testing}
-        onClick={runTest}
-      >
-        {testing ? '確認中…' : '接続テスト'}
-      </button>
-      {test && <p className={`text-sm ${test.ok ? 'text-brand' : 'text-accent'}`}>{test.text}</p>}
     </section>
   );
 }
