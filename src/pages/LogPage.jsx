@@ -28,6 +28,11 @@ function workoutValues(kind, w) {
   if (isRowKind(kind) && w.maxHR) v.maxHR = String(w.maxHR);
   if (isRowKind(kind) && v.distance && v.time) v.split = calcSplit(Number(v.distance), v.time);
   if (kind === 'cross' && ACTIVITIES[w.activity]?.cross) v.type = ACTIVITIES[w.activity].cross;
+  if (kind === 'cross') {
+    const avg = crossAvgOf(v.type, v.distance, v.time);
+    if (v.type === 'cycling') v.avgSpeed = avg;
+    else v.pace = avg;
+  }
   return v;
 }
 
@@ -78,9 +83,61 @@ function derive(by, { distance, time, split, _keep }) {
   return { distance: keep ? Number(distance) : Math.round((sec / sp) * 500), sec, split: normSplit };
 }
 
+// ─── ラン / バイク ───────────────────────────────────
+// 距離メニュー: 距離 + 平均ペース(バイクは平均速度)→ タイム。時間メニュー: 時間 + 平均 → 距離。
+const round1 = (x) => Math.round(x * 10) / 10;
+
+// 距離(km)とタイムから出した平均。ランは秒/km を「M:SS.T」、バイクは km/h
+function crossAvgOf(type, distance, time) {
+  const d = Number(distance);
+  const sec = parseTime(time);
+  if (!(d > 0) || !(sec > 0)) return '';
+  return type === 'cycling' ? String(round1(d / (sec / 3600))) : formatTime(sec / d);
+}
+
+function deriveCross(by, type, { distance, time, pace, avgSpeed }) {
+  const running = type !== 'cycling';
+  const avg = running ? parseTime(pace) : Number(avgSpeed);
+  if (!(avg > 0)) return null;
+  const avgText = running ? normalizeTime(pace) : String(Number(avgSpeed));
+  // 入力した平均が、すでにある距離とタイムの組と合っているなら、その組をそのまま使う
+  // (編集で開いた記録やヘルスケアの取り込みで、丸めによる再計算のずれを出さない)
+  if (Number(distance) > 0 && parseTime(time) > 0 && crossAvgOf(type, distance, time) === avgText) {
+    return { distance: Number(distance), sec: parseTime(time), avg: avgText, running };
+  }
+  if (by === 'distance') {
+    const d = Number(distance);
+    if (!(d > 0)) return null;
+    return { distance: d, sec: running ? avg * d : (d / avg) * 3600, avg: avgText, running };
+  }
+  const sec = parseTime(time);
+  if (!(sec > 0)) return null;
+  return { distance: Math.round((running ? sec / avg : (avg * sec) / 3600) * 100) / 100, sec, avg: avgText, running };
+}
+
+// 保存してある平均ペース/速度が、保存してある距離・タイムを再現できるときだけ使う。
+// 旧アプリの記録のように合っていなければ、距離とタイムから出した平均にする(開き直しで値が動かないように)
+function storedCrossAvg(rec) {
+  const running = rec.type !== 'cycling';
+  const stored = running ? rec.pace : rec.avgSpeed;
+  const calc = crossAvgOf(rec.type, rec.distance, rec.time);
+  if (stored == null || stored === '' || !calc) return calc || (stored != null ? String(stored) : '');
+  const by = rec.menuBy === 'time' ? 'time' : 'distance';
+  const probe = deriveCross(by, rec.type, {
+    distance: rec.distance, time: rec.time, pace: running ? stored : '', avgSpeed: running ? '' : stored,
+  });
+  const same = probe && Math.abs(probe.sec - parseTime(rec.time)) < 0.06 && Math.abs(probe.distance - Number(rec.distance)) < 0.006;
+  return same ? String(stored) : calc;
+}
+
 const valuesFrom = (kind, rec) => {
   const v = Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, rec[f.key] ?? f.default ?? '']));
   // 旧い記録にはスプリットの入力値がないので、距離とタイムから出す
+  if (kind === 'cross') {
+    const avg = storedCrossAvg(rec);
+    if (rec.type !== 'cycling') v.pace = avg;
+    else v.avgSpeed = avg;
+  }
   if (isRowKind(kind) && !rec.intervals?.length) {
     const keep = keepOf(rec.distance, rec.time, rec.split);
     v.split = keep?.split ?? rec.split ?? '';
@@ -196,6 +253,8 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
         distance: menuBy === 'distance' ? String(r.distance ?? '') : '',
         time: menuBy === 'time' ? r.time ?? '' : '',
         split: '',
+        pace: '',
+        avgSpeed: '',
       }));
     }
   };
@@ -266,6 +325,22 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
         delete rec.distance;
       }
       rec.menuBy = by;
+    } else if (kind === 'cross') {
+      // ラン/バイク: 決めてある側(距離 or 時間)と平均ペース(速度)から、もう片方を出す
+      const r = deriveCross(by, rec.type, rec);
+      if (r) {
+        rec.distance = r.distance;
+        rec.time = formatTime(r.sec);
+        if (r.running) rec.pace = r.avg;
+        else rec.avgSpeed = Number(r.avg);
+        if (r.running) rec.avgSpeed = round1(r.distance / (r.sec / 3600));
+      } else if (by === 'distance') {
+        delete rec.time; // 切り替え前の入力が隠れて残っていても、持ち越さない
+      } else {
+        delete rec.distance;
+      }
+      if (rec.type === 'cycling') delete rec.pace;
+      rec.menuBy = by;
     }
     return rec;
   };
@@ -298,8 +373,11 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   // 単発: スプリットから出した、もう片方の値とワット(入力しながら見せる)
   const single = isRow && mode === 'single' ? derive(by, values) : null; // values に _keep も入っている
   const singleWatts = single ? Math.round(wattsFromSplit(parseTime(single.split))) : null;
+  const cross = kind === 'cross' ? deriveCross(by, values.type, values) : null;
   const hiddenKeys =
-    !isRow ? [] : mode === 'intervals' ? ['distance', 'time', 'split', 'rate'] : by === 'distance' ? ['time'] : ['distance'];
+    kind === 'cross'
+      ? [by === 'distance' ? 'time' : 'distance', values.type === 'cycling' ? 'pace' : 'avgSpeed']
+      : !isRow ? [] : mode === 'intervals' ? ['distance', 'time', 'split', 'rate'] : by === 'distance' ? ['time'] : ['distance'];
 
   return (
     <div className="space-y-4">
@@ -364,16 +442,18 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
                 </div>
               </Field>
             )}
-            {isRow && f.key === 'type' && (
+            {(isRow || kind === 'cross') && f.key === 'type' && (
               <Field label="メニュー">
                 <div className="flex gap-2">
                   <Chip active={by === 'distance'} onClick={() => changeBy('distance')}>距離メニュー</Chip>
                   <Chip active={by === 'time'} onClick={() => changeBy('time')}>時間メニュー</Chip>
                 </div>
                 <p className="mt-1.5 text-xs text-mute">
-                  {by === 'distance'
-                    ? '距離を決めて、平均スプリットを入れます。タイムは自動で出ます。'
-                    : '時間を決めて、平均スプリットを入れます。距離は自動で出ます。'}
+                  {kind === 'cross'
+                    ? `${by === 'distance' ? '距離' : '時間'}を決めて、${values.type === 'cycling' ? '平均速度' : '平均ペース'}を入れます。${by === 'distance' ? 'タイム' : '距離'}は自動で出ます。`
+                    : by === 'distance'
+                      ? '距離を決めて、平均スプリットを入れます。タイムは自動で出ます。'
+                      : '時間を決めて、平均スプリットを入れます。距離は自動で出ます。'}
                 </p>
               </Field>
             )}
@@ -383,6 +463,12 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
           </Fragment>
         ))}
 
+        {cross && (
+          <p className="text-sm text-mute">
+            {by === 'distance' ? <>タイム <b className="text-ink">{formatTime(cross.sec)}</b></> : <>距離 <b className="text-ink">{cross.distance}km</b></>}
+            {cross.running && <> · 平均 <b className="text-ink">{round1(cross.distance / (cross.sec / 3600))}km/h</b></>}
+          </p>
+        )}
         {single && (
           <p className="text-sm text-mute">
             {by === 'distance' ? <>タイム <b className="text-ink">{formatTime(single.sec)}</b></> : <>距離 <b className="text-ink">{single.distance}m</b></>}

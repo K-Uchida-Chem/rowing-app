@@ -1,5 +1,5 @@
 // 履歴・今日の画面に出す「1行ぶんの表示」を種類ごとに作る
-import { ERGO_ZONES, KINDS, labelOf, exerciseLabel, intervalLabel, formatDate, boatShort } from './lib.js';
+import { ERGO_ZONES, KINDS, labelOf, exerciseLabel, intervalLabel, formatDate, boatShort, parseTime, formatTime, timeMenuLabel } from './lib.js';
 import { minutesOf, readiness } from './stats.js';
 
 const MEALS = { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食', total: '1日合計' };
@@ -57,12 +57,24 @@ export function rowOf(e) {
         detail: join([setsText(e) || '自重', e.estimated1RM && `推定1RM ${e.estimated1RM}kg`]),
         lines,
       };
-    case 'cross':
+    case 'cross': {
+      // 見出しは、決めてあるメニュー側(距離メニューなら距離、時間メニューなら時間)。もう片方は詳細に出す
+      const running = e.type !== 'cycling';
+      const sec = parseTime(e.time);
+      const pace = e.pace || (running && e.distance && sec ? formatTime(sec / e.distance) : '');
+      const speed = e.avgSpeed ?? (e.distance && sec ? Math.round((e.distance / (sec / 3600)) * 10) / 10 : null);
+      const byTime = e.menuBy === 'time';
       return {
-        title: join([e.type === 'cycling' ? 'バイク' : 'ラン', e.distance && `${e.distance}km`]),
-        detail: join([e.time, e.avgHR && `HR${e.avgHR}`, e.rpe && `RPE${e.rpe}`]),
+        title: join([running ? 'ラン' : 'バイク', byTime ? timeMenuLabel(sec || 0) : e.distance && `${e.distance}km`], ' '),
+        detail: join([
+          byTime ? e.distance && `${e.distance}km` : e.time,
+          running ? pace && `${pace.replace(/\.0$/, '')}/km` : speed && `${speed}km/h`,
+          e.avgHR && `HR${e.avgHR}`,
+          e.rpe && `RPE${e.rpe}`,
+        ]),
         lines,
       };
+    }
     case 'condition':
       return {
         title: join([e.sleep && `睡眠 ${e.sleep}h`, e.fatigue && `疲労 ${e.fatigue}/5`]),

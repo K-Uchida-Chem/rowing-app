@@ -158,14 +158,16 @@ export const KINDS = {
     label: 'ラン/バイク',
     requireAny: ['distance', 'time'],
     menuKeys: ['type', 'distance'],
-    menuLabel: (r) => `${r.type === 'cycling' ? 'バイク' : 'ラン'} ${r.distance}km`,
+    menuLabel: (r) => `${r.type === 'cycling' ? 'バイク' : 'ラン'} ${r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}km`}`,
     fields: [
       {
         key: 'type', label: '種類', type: 'choice', default: 'running',
         options: [{ id: 'running', label: 'ランニング' }, { id: 'cycling', label: 'サイクリング' }],
       },
       { key: 'distance', label: '距離 (km)', type: 'number', presets: [3, 5, 10, 20] },
-      { key: 'time', label: 'タイム(数字だけ入力)', type: 'time' },
+      { key: 'time', label: '時間(数字だけ入力: 3000 → 30:00.0)', type: 'time', presets: [1200, 1800, 2400, 3600, 5400, 7200] },
+      { key: 'pace', label: '平均ペース(/km・数字だけ入力: 5300 → 5:30.0)', type: 'time' },
+      { key: 'avgSpeed', label: '平均速度 (km/h)', type: 'number', step: 0.1 },
       { key: 'avgHR', label: '平均心拍', type: 'number' },
       { key: 'rpe', label: 'きつさ RPE', type: 'scale', min: 1, max: 10 },
       { key: 'memo', label: 'メモ', type: 'text' },
