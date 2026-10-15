@@ -88,11 +88,13 @@ export const KINDS = {
     label: 'エルゴ',
     requireAny: ['distance', 'time'],
     menuKeys: ['type', 'distance'],
-    menuLabel: (r) => `${labelOf(ERGO_ZONES, r.type)} ${r.intervals?.length ? intervalLabel(r) : `${r.distance}m`}`,
+    menuLabel: (r) =>
+      `${labelOf(ERGO_ZONES, r.type)} ${r.intervals?.length ? intervalLabel(r) : r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}m`}`,
     fields: [
       { key: 'type', label: '強度ゾーン', type: 'choice', options: ERGO_ZONES, default: 'UT2' },
       { key: 'distance', label: '距離 (m)', type: 'number', presets: [500, 1000, 2000, 5000, 6000, 10000] },
-      { key: 'time', label: 'タイム(数字だけ入力: 7053 → 7:05.3)', type: 'time' },
+      { key: 'time', label: '時間(数字だけ入力: 3000 → 30:00.0)', type: 'time', presets: [600, 1200, 1800, 2400, 3600] },
+      { key: 'split', label: '平均スプリット(/500m・数字だけ入力: 1463 → 1:46.3)', type: 'time' },
       { key: 'rate', label: 'レート (spm)', type: 'number' },
       { key: 'avgHR', label: '平均心拍(全体)', type: 'number' },
       { key: 'maxHR', label: '最大心拍', type: 'number' },
@@ -101,7 +103,7 @@ export const KINDS = {
     ],
     // スプリットと平均ワットは自動計算。インターバルのワットは区間ごとの時間加重平均を入力画面で計算済み
     prepare: (r) => {
-      const split = calcSplit(r.distance, r.time);
+      const split = r.split || calcSplit(r.distance, r.time);
       const sec500 = parseTime(split);
       const watts = r.intervals?.length ? r.watts : sec500 ? Math.round(wattsFromSplit(sec500)) : r.watts;
       return { ...r, split, ...(watts != null && { watts }) };
