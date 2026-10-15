@@ -15,6 +15,11 @@ Chart.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, L
 const NAVY = '#1b365d';
 const MUTE = '#8a8578';
 const LABELS = { exerciseLabel, boatLabel: boatShort, zoneLabel: (id) => id };
+// エルゴと水上は、行の頭に小さなラベルを付けて見分ける(色は増やさず、枠だけ/塗りで区別)
+const KIND_TAG = {
+  ergo: { label: 'エルゴ', cls: 'text-brand' },
+  water: { label: '水上', cls: 'bg-brand text-white' },
+};
 const SESSION_LABEL = { am: '午前', pm: '午後', '': '' };
 const RANGES = [
   { id: '4w', label: '4週', weeks: 4 },
@@ -211,6 +216,7 @@ function AerobicRow({ row: r }) {
   return (
     <div className="border-t border-line py-1 first:border-t-0">
       <p className="flex flex-wrap items-baseline gap-x-2 leading-snug">
+        {KIND_TAG[r.kind] && <span className={`self-center rounded-sm border border-brand px-1 text-[10px] font-bold leading-4 ${KIND_TAG[r.kind].cls}`}>{KIND_TAG[r.kind].label}</span>}
         <span className="text-[13px] font-semibold">{r.name}</span>
         {r.boat && <span className="text-[11px] text-mute">{r.boat}</span>}
         <span className="text-[12px] tabular-nums text-ink/80">{metrics.join('  ')}</span>
