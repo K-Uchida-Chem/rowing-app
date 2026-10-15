@@ -5,11 +5,11 @@ import {
 import { Bar, Line } from 'react-chartjs-2';
 import { useEntries } from '../useEntries.js';
 import {
-  parseTime, formatTime, formatDate, formatTimeInput, EXERCISES, ERGO_ZONES, labelOf,
+  parseTime, formatTime, formatDate, formatTimeInput, EXERCISES, ERGO_ZONES,
 } from '../lib.js';
 import {
   lastWeekStarts, shortDate, computePBs, PB_DISTANCES, weeklyZoneMinutes, ut2Share, weeklyLoad, loadWarning,
-  predict2k, wattsFromSplit, weekReport,
+  predict2k, weekReport,
 } from '../stats.js';
 
 Chart.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend);
@@ -18,7 +18,7 @@ const BRAND = '#1b365d';
 const COLORS = ['#1b365d', '#c2410c', '#8a8578'];
 const baseOptions = { responsive: true, plugins: { legend: { display: false } } };
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ onOpenWeek }) {
   const entries = useEntries();
   if (!entries) return null;
 
@@ -56,6 +56,10 @@ export default function AnalyticsPage() {
   return (
     <>
       <h1 className="text-xl font-bold">分析</h1>
+
+      <button onClick={onOpenWeek} className="w-full rounded-md border border-brand py-3 font-semibold text-brand active:bg-brand-soft">
+        週次レポートを開く(曜日別の詳細・体重・強度別)
+      </button>
 
       <WeeklyReport entries={entries} />
 

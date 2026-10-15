@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Minus, Plus, X } from 'lucide-react';
 import db from '../db.js';
@@ -7,14 +7,16 @@ import HrChart from '../HrChart.jsx';
 import { ACTIVITIES, workoutSummary } from '../workouts.js';
 import {
   KINDS, cleanRecord, today, toDateStr, formatTimeInput, normalizeTime, calcSplit, parseTime, formatTime,
-  normalizeRecord, exerciseLabel, wattsFromSplit, timeMenuLabel,
+  normalizeRecord, exerciseLabel, wattsFromSplit, timeMenuLabel, SESSIONS, normalizeSession,
 } from '../lib.js';
 
 // エルゴと水上は同じ入力(単発/インターバル、距離/時間メニュー、スプリット…)
 const isRowKind = (k) => k === 'ergo' || k === 'water';
 
-const initialValues = (kind) =>
-  Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, f.default ?? '']));
+const initialValues = (kind) => ({
+  ...Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, f.default ?? ''])),
+  ...(KINDS[kind].sessionable && { session: '' }),
+});
 
 // ヘルスケアのワークアウトから分かる項目を入力欄に入れる(メニュー名や強度ゾーンは後から本人が選ぶ)
 function workoutValues(kind, w) {
@@ -132,6 +134,7 @@ function storedCrossAvg(rec) {
 
 const valuesFrom = (kind, rec) => {
   const v = Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, rec[f.key] ?? f.default ?? '']));
+  if (KINDS[kind].sessionable) v.session = normalizeSession(rec.session);
   // 旧い記録にはスプリットの入力値がないので、距離とタイムから出す
   if (kind === 'cross') {
     const avg = storedCrossAvg(rec);
@@ -154,7 +157,7 @@ const daysAgo = (n) => {
 
 // 編集時に、フォームが扱わない項目(旧アプリの動画URLなど)は残し、フォームの項目は入れ替える
 function preservedFields(kind, rec) {
-  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'intervals', 'intervalBy', 'menuBy', 'watts', 'kind', 'setList', 'hr', 'sleepHours', 'fatigueScore']);
+  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'session', 'intervals', 'intervalBy', 'menuBy', 'watts', 'kind', 'setList', 'hr', 'sleepHours', 'fatigueScore']);
   return Object.fromEntries(Object.entries(rec).filter(([k]) => !own.has(k)));
 }
 
@@ -299,12 +302,13 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
 
   const buildRecord = () => {
     const rec = cleanRecord(kind, values);
+    if (def.sessionable && values.session) rec.session = values.session;
     if (isRow && mode === 'intervals') {
       delete rec.distance;
       delete rec.time;
       delete rec.rate;
       if (donePieces.length) {
-        rec.intervals = donePieces.map(({ sec, rate, watts, ...p }) => ({ ...p, ...(showWatts && { watts }), ...(rate != null && { rate }) }));
+        rec.intervals = donePieces.map(({ sec: _sec, rate, watts, ...p }) => ({ ...p, ...(showWatts && { watts }), ...(rate != null && { rate }) }));
         rec.intervalBy = by;
         rec.distance = totalDist;
         rec.time = formatTime(totalSec);
@@ -419,6 +423,16 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
             <input type="date" className="input !w-auto flex-1" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
         </Field>
+
+        {def.sessionable && (
+          <Field label="時間帯(任意)">
+            <div className="flex gap-2">
+              {SESSIONS.map((o) => (
+                <Chip key={o.id} active={values.session === o.id} onClick={() => set('session', values.session === o.id ? '' : o.id)}>{o.label}</Chip>
+              ))}
+            </div>
+          </Field>
+        )}
 
         {hint && <p className="-mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs text-brand">{hint}</p>}
         {editing?.setList?.length > 1 && (

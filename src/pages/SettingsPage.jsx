@@ -11,6 +11,27 @@ const DAYS = [
   { id: 5, name: '金' }, { id: 6, name: '土' }, { id: 0, name: '日' },
 ];
 
+// 開発サーバーでだけ出す: 週次レポート確認用のダミーデータ(実データには触れない。印つきのものだけ消せる)
+function DummySection() {
+  const [msg, setMsg] = useState('');
+  const run = async (fn, done) => {
+    const { seedDummy, clearDummy } = await import('../dev/dummyData.js');
+    const { todayInTz } = await import('../report/week.js');
+    setMsg(await done(fn === 'seed' ? await seedDummy(db, todayInTz()) : await clearDummy(db)));
+  };
+  return (
+    <section className="card space-y-3">
+      <h2 className="label">開発用: ダミーデータ</h2>
+      <p className="text-xs text-mute">週次レポートの確認用です。入れたデータには印がつき、「消す」で、その印のものだけが消えます。実際の記録は変わりません。</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button className="btn" onClick={() => run('seed', (n) => `${n}件のダミーを入れました`)}>入れる</button>
+        <button className="rounded-md border border-brand py-3 font-semibold text-brand" onClick={() => run('clear', () => 'ダミーを消しました')}>消す</button>
+      </div>
+      {msg && <p className="text-sm text-brand">{msg}</p>}
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <>
@@ -19,6 +40,7 @@ export default function SettingsPage() {
       <GoalSection />
       <HealthSection />
       <BackupSection />
+      {import.meta.env.DEV && <DummySection />}
     </>
   );
 }

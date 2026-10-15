@@ -5,6 +5,7 @@ import HistoryPage from './pages/HistoryPage.jsx';
 import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import DayPage from './pages/DayPage.jsx';
+import WeekReportPage from './pages/WeekReportPage.jsx';
 import { today } from './lib.js';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { ACTIVITIES } from './workouts.js';
@@ -81,7 +82,8 @@ export default function App() {
         )}
         {tab === 'history' && <HistoryPage onEdit={openEdit} onOpenDay={openDay} />}
         {tab === 'day' && <DayPage key={dayDate} date={dayDate} onDate={setDayDate} onEdit={openEdit} />}
-        {tab === 'analytics' && <AnalyticsPage />}
+        {tab === 'analytics' && <AnalyticsPage onOpenWeek={() => setTab('week')} />}
+        {tab === 'week' && <WeekReportPage />}
         {tab === 'settings' && <SettingsPage />}
         </ErrorBoundary>
       </main>
@@ -93,7 +95,7 @@ export default function App() {
               key={id}
               onClick={() => go(id)}
               className={`flex-1 border-t-2 py-3.5 text-sm ${
-                (tab === id || (tab === 'day' && id === 'history')) ? 'border-brand font-bold text-brand' : 'border-transparent text-mute'
+                (tab === id || (tab === 'day' && id === 'history') || (tab === 'week' && id === 'analytics')) ? 'border-brand font-bold text-brand' : 'border-transparent text-mute'
               }`}
             >
               {label}

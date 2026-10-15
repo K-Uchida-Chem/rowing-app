@@ -58,6 +58,17 @@ export const ERGO_ZONES = [
   { id: 'other', label: 'その他', color: '#94a3b8' },
 ];
 
+// 練習の時間帯(任意)。週次レポートで、1日に朝練と午後練があるときの区切りに使う。
+// 旧アプリの記録には 'AM' / 'PM' で入っている。
+export const SESSIONS = [
+  { id: 'am', label: '午前' },
+  { id: 'pm', label: '午後' },
+];
+export const normalizeSession = (v) => {
+  const s = String(v ?? '').toLowerCase();
+  return s === 'am' || s === 'pm' ? s : '';
+};
+
 export const BOATS = [
   { id: '1x', label: 'シングル 1x' },
   { id: '2x', label: 'ダブル 2x' },
@@ -100,6 +111,7 @@ export const KINDS = {
   ergo: {
     table: 'ergoRecords',
     label: 'エルゴ',
+    sessionable: true,
     requireAny: ['distance', 'time'],
     menuKeys: ['type', 'distance'],
     menuLabel: (r) =>
@@ -135,6 +147,7 @@ export const KINDS = {
   strength: {
     table: 'strengthRecords',
     label: '筋トレ',
+    sessionable: true,
     requireAny: ['weight', 'reps'],
     fields: [
       { key: 'exercise', label: '種目', type: 'choice', options: EXERCISES, default: 'squat' },
@@ -156,6 +169,7 @@ export const KINDS = {
   cross: {
     table: 'crossTrainingRecords',
     label: 'ラン/バイク',
+    sessionable: true,
     requireAny: ['distance', 'time'],
     menuKeys: ['type', 'distance'],
     menuLabel: (r) => `${r.type === 'cycling' ? 'バイク' : 'ラン'} ${r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}km`}`,
