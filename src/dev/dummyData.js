@@ -52,7 +52,7 @@ const TECHNIQUE = [
  * @returns {Record<string, any[]>} テーブル名 → レコードの配列(id なし)
  */
 export function generateDummy({ today, weeks = 10 }) {
-  const out = { ergoRecords: [], waterRecords: [], strengthRecords: [], crossTrainingRecords: [], conditionRecords: [], bodyWeightRecords: [], weeklySchedule: [] };
+  const out = { ergoRecords: [], waterRecords: [], strengthRecords: [], crossTrainingRecords: [], conditionRecords: [], bodyWeightRecords: [], weeklySchedule: [], weekNotes: [] };
   const thisWeek = weekStartOf(today);
 
   for (let w = weeks; w >= 0; w--) {
@@ -117,6 +117,9 @@ export function generateDummy({ today, weeks = 10 }) {
     }
   }
 
+  // 先週の振り返りと、「来週(=今週)の課題」。今週の画面に「先週決めた課題」として出る
+  out.weekNotes.push({ weekStart: addDays(thisWeek, -7), review: '4×2000mの後半が落ちた。水上は風で崩れた日があった。', next: '4×2000mは3本目でスプリットを落とさない。\nキャッチのタイミングを揃える。', dummy: true });
+
   // 週間メニュー(今日より先の日の「予定」に出る)。実データがあれば、投入側で上書きしない
   const plan = { 1: ['UT2', 'Day 1', ''], 2: ['AT', 'none', '乗艇'], 3: ['none', 'none', 'オフ'], 4: ['UT1', 'Day 2', ''], 5: ['AT', 'none', '乗艇 + ラン'], 6: ['TR', 'none', ''], 0: ['none', 'none', 'ロング'] };
   for (const [dow, [ergoType, strengthDay, description]] of Object.entries(plan)) {
@@ -126,7 +129,7 @@ export function generateDummy({ today, weeks = 10 }) {
 }
 
 /** 記録のテーブル(スケジュールは別扱い) */
-export const DUMMY_TABLES = ['ergoRecords', 'waterRecords', 'strengthRecords', 'crossTrainingRecords', 'conditionRecords', 'bodyWeightRecords'];
+export const DUMMY_TABLES = ['ergoRecords', 'waterRecords', 'strengthRecords', 'crossTrainingRecords', 'conditionRecords', 'bodyWeightRecords', 'weekNotes'];
 
 /** ダミーを入れる。前に入れたダミーは、先に消す。実データの週間メニューがあれば残す。 */
 export async function seedDummy(db, today) {

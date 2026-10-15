@@ -9,7 +9,7 @@ import { todayInTz } from '../src/report/week.js';
 const data = generateDummy({ today: todayInTz() });
 const out = {};
 for (const [table, rows] of Object.entries(data)) {
-  out[table] = table === 'weeklySchedule' ? rows : rows.map((r, i) => ({ id: i + 1, ...r }));
+  out[table] = table === 'weeklySchedule' || table === 'weekNotes' ? rows : rows.map((r, i) => ({ id: i + 1, ...r }));
 }
 for (const t of ['nutritionRecords', 'goals', 'dayNotes', 'workouts']) out[t] = [];
 writeFileSync('dummy-backup.json', JSON.stringify(out));

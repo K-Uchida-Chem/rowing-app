@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Chart, CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend } from 'chart.js';
@@ -68,11 +68,13 @@ export default function WeekReportPage() {
       <Summary report={report} />
       <WeightPanel report={report} weights={weights} today={today} range={range} setRange={setRange} />
       <section className="space-y-2.5">
-        <h2 className="label">曜日別の詳細</h2>
+        <h2 className="label">曜日別の詳細 <span className="text-[10px] font-normal tracking-normal">前回比は、同じメニューの前回との差(−が速い)</span></h2>
         {report.days.map((d) => <DayBlock key={d.date} day={d} />)}
       </section>
+      <Techniques items={report.techniques} />
       <Intensity data={report.intensity} />
       <Condition data={report.condition} />
+      <WeekNotes key={report.start} weekStart={report.start} />
     </>
   );
 }
@@ -220,6 +222,11 @@ function AerobicRow({ row: r }) {
         <span className="text-[13px] font-semibold">{r.name}</span>
         {r.boat && <span className="text-[11px] text-mute">{r.boat}</span>}
         <span className="text-[12px] tabular-nums text-ink/80">{metrics.join('  ')}</span>
+        {r.vs && (
+          <span className="text-[11px] tabular-nums text-mute">
+            前回比 {formatDelta(Math.round(r.vs.diff * 10) / 10, (n) => `${n.toFixed(1)}秒`)}({formatMD(r.vs.date)})
+          </span>
+        )}
       </p>
       {r.splits.length > 1 && <p className="text-[11px] leading-snug tabular-nums text-mute">{r.splits.map(formatSplit).join(' / ')}</p>}
     </div>
@@ -236,6 +243,78 @@ function StrengthRow({ item: x }) {
         {x.e1rm !== null && ` · 1RM ${Math.round(x.e1rm)}kg`}
       </span>
     </p>
+  );
+}
+
+// ─── 今週の技術的な振り返り ──────────────────────────
+function Techniques({ items }) {
+  if (!items.length) return null; // 書いたものがなければ、この項目は省略する
+  return (
+    <section>
+      <h2 className="label mb-1.5">今週の技術的な振り返り</h2>
+      <ul className="space-y-2">
+        {items.map((n) => (
+          <li key={n.id} className="border-l-2 border-line pl-2.5">
+            <p className="text-[11px] tabular-nums text-mute">
+              {n.label} {formatMD(n.date)}{n.session && ` ${SESSION_LABEL[n.session]}`} · {n.title}
+            </p>
+            <p className="whitespace-pre-wrap text-[13px] leading-snug">{n.text}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// ─── 週の振り返りメモ ────────────────────────────────
+// 「今週の振り返り」と「来週の課題」。入力が止まって0.6秒後に自動で保存する。
+// 先週に書いた「来週の課題」は、今週の画面に出す(やり残しに気づけるように)。
+function WeekNotes({ weekStart }) {
+  const saved = useLiveQuery(async () => {
+    const [cur, prev] = await Promise.all([db.weekNotes.get(weekStart), db.weekNotes.get(addDays(weekStart, -7))]);
+    // 取得結果に週を持たせ、週が切り替わった直後に、前の週の内容を取り込まないようにする
+    return { forWeek: weekStart, review: cur?.review ?? '', next: cur?.next ?? '', lastWeeksNext: prev?.next ?? '' };
+  }, [weekStart]);
+  const [review, setReview] = useState('');
+  const [next, setNext] = useState('');
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (saved?.forWeek === weekStart && !loaded) {
+      setReview(saved.review);
+      setNext(saved.next);
+      setLoaded(true);
+    }
+  }, [saved, weekStart, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const t = setTimeout(() => {
+      if (review.trim() || next.trim()) db.weekNotes.put({ weekStart, review, next, updatedAt: new Date().toISOString() });
+      else db.weekNotes.delete(weekStart);
+    }, 600);
+    return () => clearTimeout(t);
+  }, [review, next, weekStart, loaded]);
+
+  return (
+    <section className="space-y-2">
+      <h2 className="label">週の振り返りメモ</h2>
+      {saved?.lastWeeksNext?.trim() && (
+        <div className="rounded-md bg-brand-soft px-3 py-2">
+          <p className="text-[10px] font-bold text-brand">先週決めた課題</p>
+          <p className="whitespace-pre-wrap text-[13px] leading-snug">{saved.lastWeeksNext}</p>
+        </div>
+      )}
+      <label className="block">
+        <span className="mb-1 block text-[11px] text-mute">今週の振り返り</span>
+        <textarea className="input min-h-20 resize-y text-[14px] leading-relaxed" value={review} onChange={(e) => setReview(e.target.value)} placeholder="よかった点、うまくいかなかった点" />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[11px] text-mute">来週の課題</span>
+        <textarea className="input min-h-16 resize-y text-[14px] leading-relaxed" value={next} onChange={(e) => setNext(e.target.value)} placeholder="次の週に意識すること" />
+      </label>
+      <p className="text-[11px] text-mute">入力すると、自動で保存されます。</p>
+    </section>
   );
 }
 

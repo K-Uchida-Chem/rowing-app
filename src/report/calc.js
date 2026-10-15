@@ -276,6 +276,70 @@ export function aerobicRow(e, labels) {
   };
 }
 
+// ─── 同じメニューの前回比 ──────────────────────────────
+
+/**
+ * 「同じメニュー」を判定するキー。エルゴ・水上だけ。
+ * 種別・強度区分・(水上は)艇種・距離メニューか時間メニューか・本数と各本の距離(または時間)が同じなら同じメニュー。
+ * 距離・時間が読めないものは null(比較しない)。
+ * @param {Entry} e
+ * @returns {string | null}
+ */
+export function menuKey(e) {
+  if (e.kind !== 'ergo' && e.kind !== 'water') return null;
+  const pieces = Array.isArray(e.intervals) ? e.intervals : [];
+  const timeMenu = pieces.length ? e.intervalBy === 'time' : e.menuBy === 'time';
+  const spec = pieces.length
+    ? pieces.map((/** @type {any} */ p) => (timeMenu ? Math.round(parseClock(p.time) ?? 0) : Math.round(Number(p.distance) || 0)))
+    : [timeMenu ? Math.round(parseClock(e.time) ?? 0) : Math.round(Number(e.distance) || 0)];
+  if (spec.every((x) => !(x > 0))) return null;
+  return [e.kind, e.type ?? '', e.kind === 'water' ? (e.boat ?? '') : '', timeMenu ? 't' : 'd', pieces.length || 1, spec.join(',')].join('|');
+}
+
+/**
+ * 同じメニューを前にやったときとの、平均スプリットの差。前回がなければ null。
+ * 差は「今回 − 前回」の秒(マイナスなら速くなった)。
+ * @param {Entry} e
+ * @param {Entry[]} all 全期間の記録
+ * @param {Labels} labels
+ * @returns {{ date: string, diff: number, previousSplit: number } | null}
+ */
+export function previousComparison(e, all, labels) {
+  const key = menuKey(e);
+  if (key === null) return null;
+  const before = (/** @type {Entry} */ x) => x.date < e.date || (x.date === e.date && (x.id ?? 0) < (e.id ?? 0));
+  const prev = all
+    .filter((x) => x !== e && x.kind === e.kind && menuKey(x) === key && before(x))
+    .sort((a, b) => (a.date === b.date ? (b.id ?? 0) - (a.id ?? 0) : a.date < b.date ? 1 : -1))[0];
+  if (!prev) return null;
+  const cur = aerobicRow(e, labels).split;
+  const old = aerobicRow(prev, labels).split;
+  if (cur === null || old === null) return null;
+  return { date: prev.date, diff: cur - old, previousSplit: old };
+}
+
+// ─── 技術的な振り返り ──────────────────────────────────
+
+/**
+ * 週のうちに書いた技術的な振り返りを、日付・時間帯の順に並べる。
+ * @param {Entry[]} entries
+ * @param {string[]} dates
+ * @param {Labels} labels
+ * @param {Map<string, { start?: string }>} [workouts]
+ */
+export function techniqueNotes(entries, dates, labels, workouts) {
+  const set = new Set(dates);
+  const order = ['am', 'pm', ''];
+  return entries
+    .filter((e) => set.has(e.date) && typeof e.technique === 'string' && e.technique.trim() !== '')
+    .map((e) => {
+      const row = aerobicRow(e, labels);
+      const session = sessionOf(e, workouts) ?? '';
+      return { id: e.id ?? 0, date: e.date, dow: dayOfWeek(e.date), label: DOW_LABELS[dayOfWeek(e.date)], session, title: [row.boat, row.name].filter(Boolean).join(' '), text: e.technique.trim() };
+    })
+    .sort((a, b) => (a.date === b.date ? order.indexOf(a.session) - order.indexOf(b.session) || a.id - b.id : a.date < b.date ? -1 : 1));
+}
+
 // ─── 1日・1週間 ────────────────────────────────────────
 
 /**
@@ -298,8 +362,9 @@ export function plannedText(row) {
  * @param {Entry[]} items その日の練習(有酸素と筋トレ)
  * @param {Labels} labels
  * @param {Map<string, { start?: string }>} [workouts]
+ * @param {Entry[]} [all] 全期間の記録(前回比のため)
  */
-function buildSessions(items, labels, workouts) {
+function buildSessions(items, labels, workouts, all = []) {
   /** @type {Map<string, Entry[]>} */
   const byKey = new Map();
   for (const e of items) {
@@ -312,7 +377,10 @@ function buildSessions(items, labels, workouts) {
     .map((key) => {
       const list = /** @type {Entry[]} */ (byKey.get(key));
       const sortByKind = (/** @type {Entry} */ a, /** @type {Entry} */ b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || (a.id ?? 0) - (b.id ?? 0);
-      const aerobic = list.filter((e) => AEROBIC_KINDS.includes(e.kind)).sort(sortByKind).map((e) => aerobicRow(e, labels));
+      const aerobic = list
+        .filter((e) => AEROBIC_KINDS.includes(e.kind))
+        .sort(sortByKind)
+        .map((e) => ({ ...aerobicRow(e, labels), vs: previousComparison(e, all, labels) }));
 
       // 筋トレは、種目ごとに1行(同じ種目を何度か記録していれば、1行にまとめる)
       /** @type {Map<string, { weight: number, reps: number }[]>} */
@@ -415,7 +483,7 @@ export function buildWeekReport({ entries, weekStart, today, labels, schedule = 
 
   const days = dates.map((date) => {
     const items = entries.filter((e) => e.date === date && TRAINING_KINDS.includes(e.kind));
-    const sessions = buildSessions(items, labels, workouts);
+    const sessions = buildSessions(items, labels, workouts, entries);
     const rows = sessions.flatMap((s) => s.aerobic);
     const dow = dayOfWeek(date);
     const isFuture = date > today;
@@ -446,6 +514,7 @@ export function buildWeekReport({ entries, weekStart, today, labels, schedule = 
 
   return {
     start: weekStart, end: dates[6], days, summary, previous, delta,
+    techniques: techniqueNotes(entries, dates, labels, workouts),
     intensity: intensityBreakdown(entries, dates),
     condition: conditionAverages(entries, dates),
     weight: weightWeekStats(weightMap, dates, prevDates),

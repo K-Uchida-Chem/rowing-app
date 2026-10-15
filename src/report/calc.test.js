@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseClock, avgSplitSec, dailyWeightMap, movingAverageAt, weightSeries, weightWeekStats,
   epley, expandSets, compressSets, summarizeStrength, aerobicRow, sessionOf, plannedText,
-  intensityBreakdown, conditionAverages, buildWeekReport, timeMenuName,
+  intensityBreakdown, conditionAverages, buildWeekReport, timeMenuName, menuKey, previousComparison, techniqueNotes,
 } from './calc.js';
 
 const labels = {
@@ -343,5 +343,99 @@ describe('週次レポート全体', () => {
     const r = buildWeekReport({ ...base, entries: [{ kind: 'ergo', id: 1, date: '2026-10-12' }, { kind: 'strength', id: 2, date: '2026-10-12' }] });
     expect(r.days[0].distance).toBe(0);
     expect(r.days[0].sessions[0].aerobic[0].split).toBeNull();
+  });
+});
+
+
+describe('同じメニューの前回比', () => {
+  // 2000m を 7:12.0 / 7:16.0 / 7:20.0 / 7:24.0 (=432, 436, 440, 444 秒) の4本
+  const mk = (id, date, secs, extra = {}) => ({
+    kind: 'ergo', id, date, type: 'UT1', intervalBy: 'distance',
+    intervals: secs.map((t) => ({ distance: 2000, time: `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}.0` })),
+    ...extra,
+  });
+
+  it('同じメニューの、直前の記録との差(今回 − 前回)。マイナスは速くなった', () => {
+    const prev = mk(1, '2026-10-06', [432, 436, 440, 444]); // 平均 438秒/2000m → 109.5 /500m
+    const cur = mk(2, '2026-10-13', [430, 434, 438, 442]); // 436 → 109.0
+    const r = previousComparison(cur, [prev, cur], labels);
+    expect(r).not.toBeNull();
+    expect(r.date).toBe('2026-10-06');
+    expect(r.diff).toBeCloseTo(109.0 - 109.5, 6);
+    expect(r.previousSplit).toBeCloseTo(109.5, 6);
+  });
+  it('前回がなければ null(初回)', () => {
+    const cur = mk(2, '2026-10-13', [430, 434, 438, 442]);
+    expect(previousComparison(cur, [cur], labels)).toBeNull();
+  });
+  it('直前の1件と比べる(それより古い記録は使わない)。未来の記録は使わない', () => {
+    const a = mk(1, '2026-09-22', [450, 450, 450, 450]);
+    const b = mk(2, '2026-09-29', [440, 440, 440, 440]);
+    const cur = mk(3, '2026-10-06', [436, 436, 436, 436]);
+    const later = mk(4, '2026-10-20', [420, 420, 420, 420]);
+    const r = previousComparison(cur, [a, b, cur, later], labels);
+    expect(r.date).toBe('2026-09-29');
+    expect(r.diff).toBeCloseTo((436 - 440) / 4, 6); // 2000m のスプリット差 = 秒差 / 4
+  });
+  it('メニューが違えば比べない(強度区分・本数・距離・距離/時間メニュー)', () => {
+    const cur = mk(9, '2026-10-13', [430, 434, 438, 442]);
+    expect(previousComparison(cur, [mk(1, '2026-10-06', [432, 436, 440, 444], { type: 'AT' }), cur], labels)).toBeNull();
+    expect(previousComparison(cur, [mk(1, '2026-10-06', [432, 436, 440]), cur], labels)).toBeNull();
+    expect(previousComparison(cur, [mk(1, '2026-10-06', [432, 436, 440, 444], { kind: 'water' }), cur], labels)).toBeNull();
+    const timeMenu = { kind: 'ergo', id: 1, date: '2026-10-06', type: 'UT1', intervalBy: 'time', intervals: [{ distance: 1000, time: '4:00.0' }, { distance: 1000, time: '4:00.0' }] };
+    expect(previousComparison(cur, [timeMenu, cur], labels)).toBeNull();
+  });
+  it('水上は、艇種が同じものどうしだけを比べる', () => {
+    const w = (id, date, boat, time) => ({ kind: 'water', id, date, type: 'UT2', boat, menuBy: 'distance', distance: 10000, time });
+    const cur = w(3, '2026-10-13', '4x', '41:00.0');
+    expect(previousComparison(cur, [w(1, '2026-10-06', '2x', '42:00.0'), cur], labels)).toBeNull();
+    const r = previousComparison(cur, [w(1, '2026-10-06', '4x', '42:00.0'), w(2, '2026-10-08', '2x', '39:00.0'), cur], labels);
+    expect(r.date).toBe('2026-10-06');
+    expect(r.diff).toBeCloseTo((2460 - 2520) / 20, 6); // 10000m で 60秒 速い → 500m あたり −3.0秒
+  });
+  it('同じ日に2回やったら、先にやった方が「前回」', () => {
+    const first = mk(1, '2026-10-13', [440, 440, 440, 440]);
+    const second = mk(2, '2026-10-13', [436, 436, 436, 436]);
+    expect(previousComparison(second, [first, second], labels)?.diff).toBeCloseTo(-1, 6);
+    expect(previousComparison(first, [first, second], labels)).toBeNull();
+  });
+  it('単発・時間メニューのキー。距離も時間も読めないものは比較しない', () => {
+    expect(menuKey({ kind: 'ergo', date: 'x', type: 'UT2', menuBy: 'distance', distance: 8000 })).toBe('ergo|UT2||d|1|8000');
+    expect(menuKey({ kind: 'ergo', date: 'x', type: 'UT2', menuBy: 'time', time: '30:00.0', distance: 7500 })).toBe('ergo|UT2||t|1|1800');
+    expect(menuKey({ kind: 'ergo', date: 'x', type: 'UT2' })).toBeNull();
+    expect(menuKey({ kind: 'strength', date: 'x' })).toBeNull();
+  });
+  it('週次レポートの行に、前回比がつく(初回は null)', () => {
+    const prev = mk(1, '2026-10-06', [432, 436, 440, 444]);
+    const cur = mk(2, '2026-10-13', [430, 434, 438, 442]);
+    const r = buildWeekReport({ entries: [prev, cur], weekStart: '2026-10-12', today: '2026-10-15', labels });
+    expect(r.days[1].sessions[0].aerobic[0].vs?.date).toBe('2026-10-06');
+    const first = buildWeekReport({ entries: [prev, cur], weekStart: '2026-10-05', today: '2026-10-15', labels });
+    expect(first.days[1].sessions[0].aerobic[0].vs).toBeNull();
+  });
+});
+
+describe('技術的な振り返りのまとめ', () => {
+  const dates = ['2026-10-12', '2026-10-13', '2026-10-14'];
+  it('週のうちに書いたものを、日付・時間帯の順に並べる', () => {
+    const notes = techniqueNotes([
+      { kind: 'water', id: 3, date: '2026-10-13', session: 'pm', boat: '4x', type: 'UT2', menuBy: 'distance', distance: 6000, time: '24:00.0', technique: '午後のメモ' },
+      { kind: 'water', id: 2, date: '2026-10-13', session: 'am', boat: '4x', type: 'UT2', menuBy: 'distance', distance: 10000, time: '40:00.0', technique: '  午前のメモ  ' },
+      { kind: 'water', id: 1, date: '2026-10-12', boat: '2x', type: 'AT', menuBy: 'distance', distance: 5000, time: '20:00.0', technique: '月曜のメモ' },
+    ], dates, labels);
+    expect(notes.map((n) => n.text)).toEqual(['月曜のメモ', '午前のメモ', '午後のメモ']);
+    expect(notes[0]).toMatchObject({ label: '月', title: '2x AT 5000m', session: '' });
+    expect(notes[1].session).toBe('am');
+  });
+  it('空のメモ・別の週・技術メモのない記録は含めない', () => {
+    const notes = techniqueNotes([
+      { kind: 'water', id: 1, date: '2026-10-12', type: 'UT2', distance: 5000, time: '20:00.0', technique: '   ' },
+      { kind: 'water', id: 2, date: '2026-10-20', type: 'UT2', distance: 5000, time: '20:00.0', technique: '別の週' },
+      { kind: 'water', id: 3, date: '2026-10-12', type: 'UT2', distance: 5000, time: '20:00.0' },
+    ], dates, labels);
+    expect(notes).toEqual([]);
+  });
+  it('週次レポートに含まれる。なければ空の配列', () => {
+    expect(buildWeekReport({ entries: [], weekStart: '2026-10-12', today: '2026-10-15', labels }).techniques).toEqual([]);
   });
 });

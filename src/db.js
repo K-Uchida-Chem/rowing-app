@@ -58,6 +58,22 @@ db.version(4).stores({
   waterRecords: '++id, date, type',
 });
 
+// v5: 週ごとの振り返りメモ(weekNotes)。キーは、その週の開始日
+db.version(5).stores({
+  ergoRecords: '++id, date, type',
+  strengthRecords: '++id, date, exercise',
+  crossTrainingRecords: '++id, date, type',
+  conditionRecords: '++id, date',
+  bodyWeightRecords: '++id, date',
+  nutritionRecords: '++id, date',
+  weeklySchedule: 'dayOfWeek',
+  goals: 'id, type',
+  dayNotes: 'date',
+  workouts: 'id, date, status',
+  waterRecords: '++id, date, type',
+  weekNotes: 'weekStart',
+});
+
 export const TABLES = [
   'ergoRecords',
   'waterRecords',
@@ -69,6 +85,7 @@ export const TABLES = [
   'weeklySchedule',
   'goals',
   'dayNotes',
+  'weekNotes',
   'workouts',
 ];
 
