@@ -10,6 +10,9 @@ import {
   normalizeRecord, exerciseLabel, wattsFromSplit, timeMenuLabel,
 } from '../lib.js';
 
+// エルゴと水上は同じ入力(単発/インターバル、距離/時間メニュー、スプリット…)
+const isRowKind = (k) => k === 'ergo' || k === 'water';
+
 const initialValues = (kind) =>
   Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, f.default ?? '']));
 
@@ -17,13 +20,13 @@ const initialValues = (kind) =>
 function workoutValues(kind, w) {
   const v = initialValues(kind);
   const sec = w.duration ? Math.round(w.duration) : null;
-  if (kind === 'ergo' || kind === 'cross') {
+  if (isRowKind(kind) || kind === 'cross') {
     if (w.distance) v.distance = String(kind === 'cross' ? Math.round(w.distance / 100) / 10 : Math.round(w.distance));
     if (sec) v.time = formatTime(sec);
     if (w.avgHR) v.avgHR = String(w.avgHR);
   }
-  if (kind === 'ergo' && w.maxHR) v.maxHR = String(w.maxHR);
-  if (kind === 'ergo' && v.distance && v.time) v.split = calcSplit(Number(v.distance), v.time);
+  if (isRowKind(kind) && w.maxHR) v.maxHR = String(w.maxHR);
+  if (isRowKind(kind) && v.distance && v.time) v.split = calcSplit(Number(v.distance), v.time);
   if (kind === 'cross' && ACTIVITIES[w.activity]?.cross) v.type = ACTIVITIES[w.activity].cross;
   return v;
 }
@@ -78,7 +81,7 @@ function derive(by, { distance, time, split, _keep }) {
 const valuesFrom = (kind, rec) => {
   const v = Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, rec[f.key] ?? f.default ?? '']));
   // 旧い記録にはスプリットの入力値がないので、距離とタイムから出す
-  if (kind === 'ergo' && !rec.intervals?.length) {
+  if (isRowKind(kind) && !rec.intervals?.length) {
     const keep = keepOf(rec.distance, rec.time, rec.split);
     v.split = keep?.split ?? rec.split ?? '';
     v._keep = keep;
@@ -101,6 +104,8 @@ function preservedFields(kind, rec) {
 export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   const isEdit = !!editing;
   const def = KINDS[kind];
+  const isRow = isRowKind(kind);
+  const showWatts = kind !== 'water'; // 水上にはエルゴ用のワット換算が当てはまらない
   const [date, setDate] = useState(editing?.date ?? workout?.date ?? today());
   const [values, setValues] = useState(() => (editing ? valuesFrom(kind, editing) : workout ? workoutValues(kind, workout) : initialValues(kind)));
   const [mode, setMode] = useState(editing?.intervals?.length ? 'intervals' : 'single');
@@ -116,7 +121,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
 
   const switchKind = (k) => {
     onKind(k);
-    setValues(initialValues(k));
+    setValues(workout ? workoutValues(k, workout) : initialValues(k));
     setMode('single');
     setBy('distance');
     setPieces([]);
@@ -138,6 +143,18 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
     return () => { cancelled = true; };
   }, [kind, exercise, isEdit]);
 
+  // 水上: 艇種は前回と同じものを初期値にする
+  useEffect(() => {
+    if (kind !== 'water' || isEdit) return;
+    let cancelled = false;
+    db.waterRecords.toArray().then((rows) => {
+      if (cancelled) return;
+      const last = rows.filter((r) => r.date && r.boat).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
+      if (last) setValues((cur) => (cur.boat ? cur : { ...cur, boat: last.boat }));
+    });
+    return () => { cancelled = true; };
+  }, [kind, isEdit]);
+
   // 最近のメニュー(種類+距離が同じものは1つにまとめる)
   useEffect(() => {
     if (!def.menuKeys || isEdit) return setRecent([]);
@@ -149,7 +166,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
       for (const r of rows.filter((r) => r.date).map((x) => normalizeRecord(kind, x)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)) {
         if (!r.distance) continue;
         const timeMenu = r.intervals?.length ? r.intervalBy === 'time' : r.menuBy === 'time';
-        const sig = JSON.stringify([r.type, timeMenu ? r.time : r.distance, r.intervals?.map((p) => (r.intervalBy === 'time' ? p.time : p.distance))]);
+        const sig = JSON.stringify([r.boat, r.type, timeMenu ? r.time : r.distance, r.intervals?.map((p) => (r.intervalBy === 'time' ? p.time : p.distance))]);
         if (seen.has(sig)) continue;
         seen.add(sig);
         out.push(r);
@@ -164,7 +181,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
     // 前回のメニューの「決めてある側」だけ引き継ぎ、結果(スプリット・レート)は空にする
     if (r.intervals?.length) {
       const menuBy = r.intervalBy === 'time' ? 'time' : 'distance';
-      setValues((cur) => ({ ...cur, type: r.type ?? cur.type, distance: '', time: '', split: '' }));
+      setValues((cur) => ({ ...cur, type: r.type ?? cur.type, ...(r.boat && { boat: r.boat }), distance: '', time: '', split: '' }));
       setMode('intervals');
       setBy(menuBy);
       setPieces(r.intervals.map((p) => ({ distance: menuBy === 'distance' ? String(p.distance) : '', time: menuBy === 'time' ? p.time : '', split: '', rate: '' })));
@@ -175,6 +192,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
       setValues((cur) => ({
         ...cur,
         type: r.type ?? cur.type,
+        ...(r.boat && { boat: r.boat }),
         distance: menuBy === 'distance' ? String(r.distance ?? '') : '',
         time: menuBy === 'time' ? r.time ?? '' : '',
         split: '',
@@ -222,20 +240,20 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
 
   const buildRecord = () => {
     const rec = cleanRecord(kind, values);
-    if (kind === 'ergo' && mode === 'intervals') {
+    if (isRow && mode === 'intervals') {
       delete rec.distance;
       delete rec.time;
       delete rec.rate;
       if (donePieces.length) {
-        rec.intervals = donePieces.map(({ sec, rate, ...p }) => ({ ...p, ...(rate != null && { rate }) }));
+        rec.intervals = donePieces.map(({ sec, rate, watts, ...p }) => ({ ...p, ...(showWatts && { watts }), ...(rate != null && { rate }) }));
         rec.intervalBy = by;
         rec.distance = totalDist;
         rec.time = formatTime(totalSec);
-        rec.watts = weighted('watts');
+        if (showWatts) rec.watts = weighted('watts');
         const rate = weighted('rate');
         if (rate != null) rec.rate = rate;
       }
-    } else if (kind === 'ergo') {
+    } else if (isRow) {
       // 単発: 決めてある側(距離 or 時間)とスプリットから、もう片方を出す
       const r = derive(by, { ...rec, _keep: values._keep });
       if (r) {
@@ -253,7 +271,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   };
 
   const record = buildRecord();
-  const canSave = kind === 'ergo' && mode === 'intervals' ? donePieces.length > 0 : def.requireAny.some((k) => record[k] != null);
+  const canSave = isRow && mode === 'intervals' ? donePieces.length > 0 : def.requireAny.some((k) => record[k] != null);
 
   const save = async (andContinue) => {
     if (!canSave) return;
@@ -278,10 +296,10 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   };
 
   // 単発: スプリットから出した、もう片方の値とワット(入力しながら見せる)
-  const single = kind === 'ergo' && mode === 'single' ? derive(by, values) : null; // values に _keep も入っている
+  const single = isRow && mode === 'single' ? derive(by, values) : null; // values に _keep も入っている
   const singleWatts = single ? Math.round(wattsFromSplit(parseTime(single.split))) : null;
   const hiddenKeys =
-    kind !== 'ergo' ? [] : mode === 'intervals' ? ['distance', 'time', 'split', 'rate'] : by === 'distance' ? ['time'] : ['distance'];
+    !isRow ? [] : mode === 'intervals' ? ['distance', 'time', 'split', 'rate'] : by === 'distance' ? ['time'] : ['distance'];
 
   return (
     <div className="space-y-4">
@@ -338,7 +356,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
             </Field>
 
             {/* ゾーンの直後に 単発/インターバル の切り替え */}
-            {kind === 'ergo' && f.key === 'type' && (
+            {isRow && f.key === 'type' && (
               <Field label="形式">
                 <div className="flex gap-2">
                   <Chip active={mode === 'single'} onClick={() => setMode('single')}>単発</Chip>
@@ -346,7 +364,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
                 </div>
               </Field>
             )}
-            {kind === 'ergo' && f.key === 'type' && (
+            {isRow && f.key === 'type' && (
               <Field label="メニュー">
                 <div className="flex gap-2">
                   <Chip active={by === 'distance'} onClick={() => changeBy('distance')}>距離メニュー</Chip>
@@ -359,8 +377,8 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
                 </p>
               </Field>
             )}
-            {kind === 'ergo' && f.key === 'type' && mode === 'intervals' && (
-              <IntervalEditor by={by} pieces={pieces} setPieces={setPieces} done={donePieces} totals={{ dist: totalDist, sec: totalSec, watts: weighted('watts'), rate: weighted('rate') }} />
+            {isRow && f.key === 'type' && mode === 'intervals' && (
+              <IntervalEditor by={by} showWatts={showWatts} pieces={pieces} setPieces={setPieces} done={donePieces} totals={{ dist: totalDist, sec: totalSec, watts: weighted('watts'), rate: weighted('rate') }} />
             )}
           </Fragment>
         ))}
@@ -368,7 +386,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
         {single && (
           <p className="text-sm text-mute">
             {by === 'distance' ? <>タイム <b className="text-ink">{formatTime(single.sec)}</b></> : <>距離 <b className="text-ink">{single.distance}m</b></>}
-            {' '}· 平均 <b className="text-ink">{singleWatts}W</b>
+            {showWatts && <> · 平均 <b className="text-ink">{singleWatts}W</b></>}
           </p>
         )}
       </div>
@@ -405,7 +423,7 @@ function withCurrentOption(f, value) {
 const DISTANCE_PRESETS = [250, 500, 750, 1000, 1500, 2000, 3000];
 const TIME_PRESETS = [60, 120, 180, 240, 300, 480, 600, 1200];
 
-function IntervalEditor({ by, pieces, setPieces, done, totals }) {
+function IntervalEditor({ by, showWatts, pieces, setPieces, done, totals }) {
   const target = by === 'distance' ? 'distance' : 'time'; // メニューで決めてある側
   const spec = pieces[0]?.[target] ?? '';
   const update = (i, patch) => setPieces((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -480,7 +498,7 @@ function IntervalEditor({ by, pieces, setPieces, done, totals }) {
             </div>
             {r && (
               <p className="pl-6 text-xs text-mute">
-                {by === 'distance' ? `タイム ${formatTime(r.sec)}` : `距離 ${r.distance}m`} · {watts}W
+                {by === 'distance' ? `タイム ${formatTime(r.sec)}` : `距離 ${r.distance}m`}{showWatts && ` · ${watts}W`}
               </p>
             )}
           </div>
@@ -490,8 +508,8 @@ function IntervalEditor({ by, pieces, setPieces, done, totals }) {
       {done.length > 0 && (
         <p className="border-t border-line pt-2 text-sm text-mute">
           {done.length}本 合計 <b className="text-ink">{totals.dist}m</b> {formatTime(totals.sec)} 平均{' '}
-          <b className="text-ink">{calcSplit(totals.dist, formatTime(totals.sec))}</b>/500m ·{' '}
-          <b className="text-ink">{totals.watts}W</b>
+          <b className="text-ink">{calcSplit(totals.dist, formatTime(totals.sec))}</b>/500m
+          {showWatts && <> · <b className="text-ink">{totals.watts}W</b></>}
           {totals.rate != null && <> · レート <b className="text-ink">{totals.rate}</b></>}
         </p>
       )}
@@ -555,6 +573,16 @@ function FieldInput({ f, value, onChange }) {
         </div>
       );
     }
+
+    case 'textarea':
+      return (
+        <textarea
+          className="input min-h-32 resize-y leading-relaxed"
+          placeholder={f.placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
 
     case 'time':
       return (

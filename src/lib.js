@@ -58,6 +58,17 @@ export const ERGO_ZONES = [
   { id: 'other', label: 'その他', color: '#94a3b8' },
 ];
 
+export const BOATS = [
+  { id: '1x', label: 'シングル 1x' },
+  { id: '2x', label: 'ダブル 2x' },
+  { id: '2-', label: 'ペア 2-' },
+  { id: '4x', label: 'クォド 4x' },
+  { id: '4-', label: 'フォア 4-' },
+  { id: '4+', label: '舵つきフォア 4+' },
+  { id: '8+', label: 'エイト 8+' },
+  { id: 'other', label: 'その他' },
+];
+
 export const EXERCISES = [
   { id: 'squat', label: 'スクワット', big3: true },
   { id: 'bench', label: 'ベンチプレス', big3: true },
@@ -76,6 +87,9 @@ export const EXERCISES = [
 ];
 
 export const labelOf = (list, id) => list.find((x) => x.id === id)?.label ?? id;
+
+// 艇種の表示名(「シングル 1x」のうち、記録の見出しでは短く「1x」を使う)
+export const boatShort = (id) => (BOATS.find((b) => b.id === id) ? id : id || '');
 
 // 旧アプリで「種目を追加」した記録は、名前が残っておらず custom-数字 のIDだけが保存されている
 export const exerciseLabel = (id) =>
@@ -216,6 +230,53 @@ KINDS.nutrition = {
     ].filter(Boolean).join(' · '),
 };
 
+// 水上トレーニング: エルゴと同じ入力に、艇種と技術的な振り返りを足したもの。
+// 水上ではエルゴ用のワット換算が当てはまらないので、ワットは計算しない。
+{
+  const [typeField, ...rest] = KINDS.ergo.fields;
+  const memoField = rest.pop();
+  KINDS.water = {
+    ...KINDS.ergo,
+    table: 'waterRecords',
+    label: '水上',
+    menuLabel: (r) =>
+      [
+        boatShort(r.boat),
+        labelOf(ERGO_ZONES, r.type),
+        r.intervals?.length ? intervalLabel(r) : r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}m`,
+      ].filter(Boolean).join(' '),
+    fields: [
+      { key: 'boat', label: '艇種', type: 'choice', options: BOATS, default: '' },
+      typeField,
+      ...rest,
+      {
+        key: 'technique',
+        label: '技術的な振り返り',
+        type: 'textarea',
+        placeholder: 'キャッチ、フィニッシュ、リズム、ブレード、クルーの感想、次に意識することなど',
+      },
+      memoField,
+    ],
+    prepare: (r) => ({ ...r, split: r.split || calcSplit(r.distance, r.time) }),
+    summary: (r) =>
+      [
+        boatShort(r.boat),
+        labelOf(ERGO_ZONES, r.type),
+        r.intervals?.length ? intervalLabel(r) : r.distance && `${r.distance}m`,
+        r.time,
+        r.split && `@${r.split}/500m`,
+        r.avgHR && `HR${r.avgHR}`,
+      ].filter(Boolean).join(' · '),
+  };
+}
+
+// 記録画面・履歴での並び順(エルゴの次に水上)
+for (const k of ['ergo', 'water', 'strength', 'cross', 'condition', 'weight', 'nutrition']) {
+  const v = KINDS[k];
+  delete KINDS[k];
+  KINDS[k] = v;
+}
+
 // インターバルの表示: 同じ距離なら 1000m×4、違えば 4本 計3500m
 export function intervalLabel(r) {
   const n = r.intervals.length;
@@ -283,7 +344,8 @@ const num = (v) => {
 
 export function normalizeRecord(kind, r) {
   switch (kind) {
-    case 'ergo': {
+    case 'ergo':
+    case 'water': {
       const intervals = (Array.isArray(r.intervals) ? r.intervals : [])
         .map((p) => ({ ...p, distance: num(p.distance), rate: num(p.rate), time: normalizeTime(p.time) || undefined }))
         .filter((p) => p.distance > 0 && p.time);

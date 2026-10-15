@@ -39,7 +39,7 @@ export default function TodayPage({ onAdd, onWorkout, onGo, onOpenDay, flash, on
 
   const km = thisWeek.filter((e) => e.kind === 'ergo').reduce((s, e) => s + (e.distance || 0), 0) / 1000;
   const days = new Set(
-    thisWeek.filter((e) => ['ergo', 'strength', 'cross'].includes(e.kind)).map((e) => e.date)
+    thisWeek.filter((e) => ['ergo', 'water', 'strength', 'cross'].includes(e.kind)).map((e) => e.date)
   ).size;
   const latestWeight = entries.find((e) => e.kind === 'weight');
 

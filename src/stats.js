@@ -73,7 +73,7 @@ export async function pbMessage(kind, rec, excludeId) {
 export function weeklyZoneMinutes(entries, n = 8) {
   const weeks = lastWeekStarts(n);
   const byZone = Object.fromEntries(ERGO_ZONES.map((z) => [z.id, weeks.map(() => 0)]));
-  for (const e of entries.filter((e) => e.kind === 'ergo')) {
+  for (const e of entries.filter((e) => e.kind === 'ergo' || e.kind === 'water')) {
     const m = minutesOf(e);
     const i = weeks.indexOf(weekStart(e.date));
     if (m == null || i < 0) continue;
@@ -93,7 +93,7 @@ export function ut2Share(entries) {
 export function weeklyLoad(entries, n = 8) {
   const weeks = lastWeekStarts(n);
   const load = weeks.map(() => 0);
-  for (const e of entries.filter((e) => (e.kind === 'ergo' || e.kind === 'cross') && e.rpe)) {
+  for (const e of entries.filter((e) => (e.kind === 'ergo' || e.kind === 'water' || e.kind === 'cross') && e.rpe)) {
     const m = minutesOf(e);
     const i = weeks.indexOf(weekStart(e.date));
     if (m != null && i >= 0) load[i] += e.rpe * m;
@@ -188,9 +188,14 @@ export function weekReport(entries, end = today()) {
   }
   if (of('strength').length) lines.push(`筋トレ: ${new Set(of('strength').map((e) => e.date)).size}日 / ${of('strength').length}種目分`);
   if (of('cross').length) lines.push(`ラン・バイク: ${of('cross').length}回 / ${sum(of('cross').map((e) => e.distance || 0)).toFixed(1)}km`);
-  lines.push(`練習日数: ${new Set(w.filter((e) => ['ergo', 'strength', 'cross'].includes(e.kind)).map((e) => e.date)).size}日`);
+  const water = of('water');
+  if (water.length) {
+    const km = sum(water.map((e) => e.distance || 0)) / 1000;
+    lines.push(`水上: ${water.length}回 / ${km.toFixed(1)}km`);
+  }
+  lines.push(`練習日数: ${new Set(w.filter((e) => ['ergo', 'water', 'strength', 'cross'].includes(e.kind)).map((e) => e.date)).size}日`);
 
-  const load = sum(w.filter((e) => (e.kind === 'ergo' || e.kind === 'cross') && e.rpe && minutesOf(e)).map((e) => e.rpe * minutesOf(e)));
+  const load = sum(w.filter((e) => (e.kind === 'ergo' || e.kind === 'water' || e.kind === 'cross') && e.rpe && minutesOf(e)).map((e) => e.rpe * minutesOf(e)));
   if (load) lines.push(`練習負荷(RPE×分): ${Math.round(load)}`);
 
   const cond = of('condition');

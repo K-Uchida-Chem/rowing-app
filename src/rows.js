@@ -1,5 +1,5 @@
 // 履歴・今日の画面に出す「1行ぶんの表示」を種類ごとに作る
-import { ERGO_ZONES, KINDS, labelOf, exerciseLabel, intervalLabel, formatDate } from './lib.js';
+import { ERGO_ZONES, KINDS, labelOf, exerciseLabel, intervalLabel, formatDate, boatShort } from './lib.js';
 import { minutesOf, readiness } from './stats.js';
 
 const MEALS = { breakfast: '朝食', lunch: '昼食', dinner: '夕食', snack: '間食', total: '1日合計' };
@@ -35,6 +35,7 @@ export function rowOf(e) {
       )
     );
   }
+  if (e.technique) lines.push(`振り返り: ${e.technique}`);
   if (e.memo) lines.push(e.memo);
 
   switch (e.kind) {
@@ -42,6 +43,12 @@ export function rowOf(e) {
       return {
         title: join([labelOf(ERGO_ZONES, e.type), e.intervals?.length ? intervalLabel(e) : e.distance && `${e.distance}m`]),
         detail: join([e.time, e.split && `@${e.split}/500m`, e.watts && `${e.watts}W`, e.avgHR && `HR${e.avgHR}`, e.rate && `${e.rate}spm`]),
+        lines,
+      };
+    case 'water':
+      return {
+        title: join([boatShort(e.boat), labelOf(ERGO_ZONES, e.type), e.intervals?.length ? intervalLabel(e) : e.distance && `${e.distance}m`]),
+        detail: join([e.time, e.split && `@${e.split}/500m`, e.avgHR && `HR${e.avgHR}`, e.rate && `${e.rate}spm`]),
         lines,
       };
     case 'strength':
@@ -78,7 +85,7 @@ export function rowOf(e) {
 // 種類の見出しの横に出す一言(筋トレなら種目数、エルゴなら合計距離)
 export function groupNote(kind, items) {
   if (kind === 'strength') return `${new Set(items.map((e) => e.exercise)).size}種目`;
-  if (kind === 'ergo') {
+  if (kind === 'ergo' || kind === 'water') {
     const km = items.reduce((s, e) => s + (e.distance || 0), 0) / 1000;
     return km ? `計 ${km.toFixed(1)}km` : '';
   }
@@ -106,8 +113,11 @@ export function dayStats(entries, allEntries, date) {
   const km = ergo.reduce((s, e) => s + (e.distance || 0), 0) / 1000;
   if (km) stats.push({ label: 'エルゴ', value: km.toFixed(1), unit: 'km' });
 
+  const waterKm = entries.filter((e) => e.kind === 'water').reduce((s, e) => s + (e.distance || 0), 0) / 1000;
+  if (waterKm) stats.push({ label: '水上', value: waterKm.toFixed(1), unit: 'km' });
+
   const min = entries
-    .filter((e) => e.kind === 'ergo' || e.kind === 'cross')
+    .filter((e) => e.kind === 'ergo' || e.kind === 'water' || e.kind === 'cross')
     .reduce((s, e) => s + (minutesOf(e) || 0), 0);
   if (min) stats.push({ label: '練習時間', value: String(Math.round(min)), unit: '分' });
 

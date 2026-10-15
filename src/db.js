@@ -43,8 +43,24 @@ db.version(3).stores({
   workouts: 'id, date, status',
 });
 
+// v4: 水上トレーニング(waterRecords)
+db.version(4).stores({
+  ergoRecords: '++id, date, type',
+  strengthRecords: '++id, date, exercise',
+  crossTrainingRecords: '++id, date, type',
+  conditionRecords: '++id, date',
+  bodyWeightRecords: '++id, date',
+  nutritionRecords: '++id, date',
+  weeklySchedule: 'dayOfWeek',
+  goals: 'id, type',
+  dayNotes: 'date',
+  workouts: 'id, date, status',
+  waterRecords: '++id, date, type',
+});
+
 export const TABLES = [
   'ergoRecords',
+  'waterRecords',
   'strengthRecords',
   'crossTrainingRecords',
   'conditionRecords',

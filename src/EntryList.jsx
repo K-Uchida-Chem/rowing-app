@@ -25,7 +25,7 @@ export default function EntryList({ entries, onEdit, onDelete }) {
                   <p className="text-[15px] font-semibold leading-snug">{row.title}</p>
                   {row.detail && <p className="mt-0.5 text-[13px] leading-snug text-ink/80">{row.detail}</p>}
                   {row.lines.map((l, i) => (
-                    <p key={i} className="mt-0.5 text-xs leading-snug text-mute">{l}</p>
+                    <p key={i} className="mt-0.5 whitespace-pre-wrap text-xs leading-snug text-mute">{l}</p>
                   ))}
                 </>
               );

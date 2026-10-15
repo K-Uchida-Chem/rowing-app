@@ -22,12 +22,12 @@ export default function AnalyticsPage() {
   const entries = useEntries();
   if (!entries) return null;
 
-  // 週ごとのエルゴ距離(km)
+  // 週ごとの距離(km): エルゴと水上を積み上げる
   const weeks = lastWeekStarts(8);
-  const weekKm = weeks.map(() => 0);
-  for (const e of entries.filter((e) => e.kind === 'ergo' && e.distance)) {
+  const weekKm = { ergo: weeks.map(() => 0), water: weeks.map(() => 0) };
+  for (const e of entries.filter((e) => (e.kind === 'ergo' || e.kind === 'water') && e.distance)) {
     const i = weeks.indexOf(weekStartOf(e.date, weeks));
-    if (i >= 0) weekKm[i] += e.distance / 1000;
+    if (i >= 0) weekKm[e.kind][i] += e.distance / 1000;
   }
 
   // 2kmタイムの推移
@@ -70,12 +70,19 @@ export default function AnalyticsPage() {
         </ul>
       </Panel>
 
-      <Panel title="週ごとのエルゴ距離 (km)">
+      <Panel title="週ごとの距離 (km)">
         <Bar
-          options={baseOptions}
+          options={{
+            responsive: true,
+            plugins: { legend: { display: weekKm.water.some((v) => v > 0), position: 'bottom', labels: { boxWidth: 10 } } },
+            scales: { x: { stacked: true }, y: { stacked: true } },
+          }}
           data={{
             labels: weeks.map(shortDate),
-            datasets: [{ data: weekKm.map((v) => +v.toFixed(1)), backgroundColor: BRAND, borderRadius: 2 }],
+            datasets: [
+              { label: 'エルゴ', data: weekKm.ergo.map((v) => +v.toFixed(1)), backgroundColor: BRAND },
+              { label: '水上', data: weekKm.water.map((v) => +v.toFixed(1)), backgroundColor: '#5b9bd5' },
+            ],
           }}
         />
       </Panel>
@@ -104,7 +111,7 @@ export default function AnalyticsPage() {
         />
       </Panel>
 
-      <Panel title="練習負荷 (RPE × 分)" empty={loads.load.every((v) => v === 0)} hint="エルゴやラン・バイクで RPE とタイムを記録すると表示されます">
+      <Panel title="練習負荷 (RPE × 分)" empty={loads.load.every((v) => v === 0)} hint="エルゴ・水上・ラン/バイクで RPE とタイムを記録すると表示されます">
         {warning && <p className="mb-3 text-sm text-accent">{warning}</p>}
         <Bar
           options={baseOptions}
