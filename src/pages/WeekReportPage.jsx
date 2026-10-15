@@ -74,12 +74,9 @@ export default function WeekReportPage() {
 
 // ─── 1. 週のサマリー ─────────────────────────────────
 function Summary({ report }) {
-  const { summary: s, delta: d, days } = report;
-  const max = Math.max(...days.map((x) => x.distance), 1);
-  const jump = (date) => document.getElementById(`week-day-${date}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
+  const { summary: s, delta: d } = report;
   return (
-    <section className="space-y-3 border-y border-line py-3">
+    <section className="space-y-1.5 border-y border-line py-2.5">
       <div className="grid grid-cols-4 gap-2">
         <Stat label="総距離" value={formatDistance(s.distance.total)} delta={formatDelta(d.distance, formatDistance)} />
         <Stat label="総練習時間" value={formatDuration(s.seconds)} delta={formatDelta(d.seconds, formatDuration)} />
@@ -89,27 +86,6 @@ function Summary({ report }) {
       <p className="text-[12px] tabular-nums text-mute">
         エルゴ {formatDistance(s.distance.ergo)} · 水上 {formatDistance(s.distance.water)} · その他 {formatDistance(s.distance.cross)}
       </p>
-
-      {/* 曜日ごとの距離。タップすると、その曜日のブロックへ移動する */}
-      <div className="flex items-end gap-1.5" role="group" aria-label="曜日ごとの距離">
-        {days.map((day) => (
-          <button
-            key={day.date}
-            onClick={() => jump(day.date)}
-            aria-label={`${day.label}曜日 ${formatDistance(day.distance)}`}
-            className="flex flex-1 flex-col items-center gap-1 text-[11px] tabular-nums text-mute"
-          >
-            <span className="h-3 leading-3">{day.distance > 0 ? (day.distance / 1000).toFixed(1) : ''}</span>
-            <span className="flex h-14 w-full items-end">
-              <span
-                className={`w-full rounded-sm ${day.isFuture ? 'bg-line' : 'bg-brand'}`}
-                style={{ height: `${Math.max((day.distance / max) * 100, day.distance > 0 ? 4 : 0)}%` }}
-              />
-            </span>
-            <span className={`text-[12px] ${day.isToday ? 'font-bold text-brand underline underline-offset-2' : day.isFuture ? 'text-mute/60' : 'text-ink'}`}>{day.label}</span>
-          </button>
-        ))}
-      </div>
     </section>
   );
 }
@@ -118,7 +94,7 @@ function Stat({ label, value, delta }) {
   return (
     <div>
       <p className="text-[11px] text-mute">{label}</p>
-      <p className="text-[17px] font-bold leading-tight tabular-nums tracking-tight">{value}</p>
+      <p className="text-[16px] font-bold leading-tight tabular-nums tracking-tight">{value}</p>
       <p className="h-3 text-[10px] leading-3 tabular-nums text-mute">{delta}</p>
     </div>
   );
@@ -136,14 +112,14 @@ function WeightPanel({ report, weights, today, range, setRange }) {
 
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <h2 className="label">体重の推移</h2>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1">
           {RANGES.map((r) => (
             <button
               key={r.id}
               onClick={() => setRange(r.id)}
-              className={`rounded-md border px-2.5 py-1 text-[12px] ${range === r.id ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'}`}
+              className={`rounded border px-2 py-0.5 text-[11px] leading-4 ${range === r.id ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'}`}
             >
               {r.label}
             </button>
@@ -151,28 +127,36 @@ function WeightPanel({ report, weights, today, range, setRange }) {
         </div>
       </div>
       {has ? (
-        <Line
-          options={{
-            responsive: true,
-            interaction: { mode: 'index', intersect: false },
-            plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
-            scales: { x: { ticks: { maxTicksLimit: 6, autoSkip: true, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } },
-          }}
-          data={{
-            labels: series.dates.map(formatMD),
-            datasets: [
-              { label: '測定値', data: series.daily, showLine: false, pointRadius: 3, backgroundColor: MUTE, borderColor: MUTE },
-              { label: '7日移動平均', data: series.average, borderColor: NAVY, backgroundColor: NAVY, borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true },
-            ],
-          }}
-        />
+        // 簡素なグラフ: 凡例・縦の目盛り線なし、高さ 88px。点が測定値、線が7日移動平均
+        <div className="h-[88px]">
+          <Line
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              layout: { padding: { top: 2, right: 2 } },
+              plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } },
+              scales: {
+                x: { grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 4, autoSkip: true, maxRotation: 0, font: { size: 9 } } },
+                y: { grid: { color: '#ece9e1' }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 9 } } },
+              },
+            }}
+            data={{
+              labels: series.dates.map(formatMD),
+              datasets: [
+                { label: '測定値', data: series.daily, showLine: false, pointRadius: 1.5, backgroundColor: MUTE, borderColor: MUTE },
+                { label: '7日移動平均', data: series.average, borderColor: NAVY, backgroundColor: NAVY, borderWidth: 1.5, pointRadius: 0, tension: 0, spanGaps: true },
+              ],
+            }}
+          />
+        </div>
       ) : (
-        <p className="py-6 text-center text-[12px] text-mute">この期間は、体重の記録がありません。</p>
+        <p className="py-3 text-center text-[12px] text-mute">この期間は、体重の記録がありません。</p>
       )}
-      <p className="mt-2 text-[12px] tabular-nums text-mute">
-        今週の平均 {formatKg(w.average)} · 先週比 {w.diff === null ? DASH : formatDelta(w.diff, (n) => `${n.toFixed(1)}kg`)} · 最小 {formatKg(w.min)} · 最大 {formatKg(w.max)}
-        <span className="ml-1">({w.count}日測定)</span>
+      <p className="mt-1 text-[11px] leading-snug tabular-nums text-mute">
+        今週 平均 {formatKg(w.average)}({w.diff === null ? '先週比 —' : `先週比 ${formatDelta(w.diff, (n) => `${n.toFixed(1)}kg`)}`}) · 最小 {formatKg(w.min)} · 最大 {formatKg(w.max)}
       </p>
+      <p className="text-[10px] leading-snug text-mute/80">点: 測定値 / 線: 7日移動平均 · 今週 {w.count}日測定</p>
     </section>
   );
 }
