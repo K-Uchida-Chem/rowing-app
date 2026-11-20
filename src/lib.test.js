@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { looseDuration, normalizeRecord } from './lib.js';
+import { looseDuration, normalizeRecord, cleanPains } from './lib.js';
 
 describe('ゆるい時間表記', () => {
   it('コロンつきはそのまま、数字だけは分、「+」は足し算', () => {
@@ -73,5 +73,51 @@ describe('旧アプリ・Slack由来の記録を、新アプリの形にそろ�
     expect(r.nameFromMemo).toBe(true);
     expect(normalizeRecord('strength', { date: 'x', exercise: 'other', exerciseName: 'ベンチプル', memo: '重かった' }).exerciseName).toBe('ベンチプル');
     expect(normalizeRecord('strength', { date: 'x', exercise: 'bench', memo: 'よかった' }).exerciseName).toBeUndefined();
+  });
+});
+
+describe('痛み・目標スプリット・区間ごとの心拍の読み込み', () => {
+  it('痛み: 部位とつらさ(1〜5)がそろったものだけ残す。同じ部位は強いほうに', () => {
+    expect(cleanPains([{ part: 'lowback', level: 2 }, { part: 'lowback', level: 3 }, { part: 'hip', level: 0 }, { part: '', level: 3 }, { part: 'knee', level: 9 }, null]))
+      .toEqual([{ part: 'lowback', level: 3 }]);
+    expect(cleanPains([])).toBeUndefined();
+    expect(cleanPains(undefined)).toBeUndefined();
+    expect(cleanPains('腰')).toBeUndefined();
+  });
+  it('コンディションの痛みを読み込む。壊れた値でも落ちない', () => {
+    expect(normalizeRecord('condition', { date: 'x', pains: [{ part: 'rib', level: '4' }] }).pains).toEqual([{ part: 'rib', level: 4 }]);
+    expect(normalizeRecord('condition', { date: 'x', pains: 'なし' }).pains).toBeUndefined();
+  });
+  it('目標スプリットをそろえる。読めないものは捨てる', () => {
+    expect(normalizeRecord('ergo', { date: 'x', targetSplit: '2:05' }).targetSplit).toBe('2:05.0');
+    expect(normalizeRecord('ergo', { date: 'x', targetSplit: '' }).targetSplit).toBeUndefined();
+    expect(normalizeRecord('ergo', { date: 'x', targetSplit: 'abc' }).targetSplit).toBeUndefined();
+  });
+  it('区間ごとの心拍。ありえない値は捨てる。心拍だけの区間も残す', () => {
+    const r = normalizeRecord('ergo', { date: 'x', intervals: [{ distance: 1000, time: '3:30.0', avgHR: '163', maxHR: 174 }, { avgHR: 9999 }, { avgHR: 150 }] });
+    expect(r.intervals[0]).toMatchObject({ avgHR: 163, maxHR: 174 });
+    expect(r.intervals).toHaveLength(2); // 9999 は心拍として捨てるので、中身のない区間は残らない
+    expect(r.intervals[1].avgHR).toBe(150);
+  });
+});
+
+describe('入力欄の案内文の例が、実際の整形と合っている', () => {
+  it('数字だけ入力すると、右から 1/10秒・秒2桁・分 の順に並ぶ', async () => {
+    const { formatTimeInput, KINDS } = await import('./lib.js');
+    expect(formatTimeInput('1463')).toBe('1:46.3');
+    expect(formatTimeInput('2050')).toBe('2:05.0');
+    expect(formatTimeInput('30000')).toBe('30:00.0');
+    expect(formatTimeInput('5300')).toBe('5:30.0');
+    expect(formatTimeInput('7053')).toBe('7:05.3');
+    // 案内文(label)に書いてある「数字 → 結果」を、すべて実際に試す
+    const examples = [];
+    for (const def of Object.values(KINDS)) {
+      for (const f of def.fields) {
+        const m = typeof f.label === 'string' && f.label.match(/(\d+) → (\d+:\d\d\.\d)/);
+        if (m) examples.push([f.key, m[1], m[2]]);
+      }
+    }
+    expect(examples.length).toBeGreaterThanOrEqual(4);
+    for (const [, digits, expected] of examples) expect(formatTimeInput(digits)).toBe(expected);
   });
 });

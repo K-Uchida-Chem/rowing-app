@@ -235,6 +235,7 @@ export function aerobicRow(e, labels) {
       kind: 'cross', id: e.id, name: cycling ? 'バイク' : running ? 'ラン' : 'その他', distance: meters, seconds,
       split: null, rate: null, hr: isNum(e.avgHR) ? e.avgHR : null, boat: '', splits: /** @type {number[]} */ ([]),
       paceSecPerKm, speedKmh, zone: '', status: String(e.status ?? ''), planned: String(e.planned ?? ''),
+      targetSplit: null, targetGap: /** @type {number | null} */ (null), pieceHr: /** @type {(number | null)[]} */ ([]), coach: String(e.coach ?? ''),
     };
   }
 
@@ -282,6 +283,11 @@ export function aerobicRow(e, labels) {
     boat: e.boat ? labels.boatLabel(e.boat) : '', splits,
     paceSecPerKm: null, speedKmh: null, zone: zoneId || UNCLASSIFIED,
     status: String(e.status ?? ''), planned: String(e.planned ?? ''),
+    // 目標スプリットと、実績との差(マイナスは目標より速い)。区間ごとの心拍(入力した本だけ)
+    targetSplit: parseClock(e.targetSplit),
+    targetGap: ((s, t) => (isNum(s) && isNum(t) && t > 0 ? s - t : null))(avgSplitSec(seconds, distance), parseClock(e.targetSplit)),
+    pieceHr: pieces.map((/** @type {any} */ p) => (isNum(p.avgHR) ? p.avgHR : null)),
+    coach: String(e.coach ?? ''),
   };
 }
 
@@ -347,6 +353,35 @@ export function techniqueNotes(entries, dates, labels, workouts) {
       return { id: e.id ?? 0, date: e.date, dow: dayOfWeek(e.date), label: DOW_LABELS[dayOfWeek(e.date)], session, title: [row.boat, row.name].filter(Boolean).join(' '), text: e.technique.trim() };
     })
     .sort((a, b) => (a.date === b.date ? order.indexOf(a.session) - order.indexOf(b.session) || a.id - b.id : a.date < b.date ? -1 : 1));
+}
+
+// ─── 痛み・違和感 ──────────────────────────────────────
+
+/**
+ * 週のうちに記録した痛み・違和感を、部位ごとにまとめる(つらさの強い順)。
+ * @param {Entry[]} entries
+ * @param {string[]} dates
+ * @returns {{ part: string, days: number, max: number, maxDate: string }[]}
+ */
+export function painSummary(entries, dates) {
+  const set = new Set(dates);
+  /** @type {Map<string, { days: Set<string>, max: number, maxDate: string }>} */
+  const acc = new Map();
+  for (const e of entries) {
+    if (e.kind !== 'condition' || !set.has(e.date) || !Array.isArray(e.pains)) continue;
+    for (const p of e.pains) {
+      const cur = acc.get(p.part) ?? { days: new Set(), max: 0, maxDate: e.date };
+      cur.days.add(e.date);
+      if (p.level > cur.max) {
+        cur.max = p.level;
+        cur.maxDate = e.date;
+      }
+      acc.set(p.part, cur);
+    }
+  }
+  return [...acc]
+    .map(([part, v]) => ({ part, days: v.days.size, max: v.max, maxDate: v.maxDate }))
+    .sort((a, b) => b.max - a.max || b.days - a.days);
 }
 
 // ─── 1日・1週間 ────────────────────────────────────────
@@ -528,6 +563,7 @@ export function buildWeekReport({ entries, weekStart, today, labels, schedule = 
     techniques: techniqueNotes(entries, dates, labels, workouts),
     intensity: intensityBreakdown(entries, dates),
     condition: conditionAverages(entries, dates),
+    pains: painSummary(entries, dates),
     weight: weightWeekStats(weightMap, dates, prevDates),
   };
 }

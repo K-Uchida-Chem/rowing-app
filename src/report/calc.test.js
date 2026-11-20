@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseClock, avgSplitSec, dailyWeightMap, movingAverageAt, weightSeries, weightWeekStats,
   epley, expandSets, compressSets, summarizeStrength, aerobicRow, sessionOf, plannedText,
-  intensityBreakdown, conditionAverages, buildWeekReport, timeMenuName, menuKey, previousComparison, techniqueNotes,
+  intensityBreakdown, conditionAverages, buildWeekReport, timeMenuName, menuKey, previousComparison, techniqueNotes, painSummary,
 } from './calc.js';
 
 const labels = {
@@ -494,5 +494,66 @@ describe('Slack由来の記録の形(バイク・その他・結果未入力の�
     expect(r.days[0].hasTraining).toBe(true);
     expect(r.days[0].sessions[0].aerobic).toHaveLength(3);
     expect(r.techniques).toHaveLength(1);
+  });
+});
+
+
+describe('目標スプリットとの差・区間ごとの心拍・指導', () => {
+  it('目標スプリットがあれば、平均スプリットとの差を出す(マイナスは目標より速い)', () => {
+    const row = aerobicRow({ kind: 'ergo', id: 1, date: 'x', type: 'UT1', menuBy: 'distance', distance: 8000, time: '33:04.0', targetSplit: '2:05.0' }, labels);
+    expect(row.targetSplit).toBe(125);
+    expect(row.targetGap).toBeCloseTo(124 - 125, 6); // 33:04 / 8000m = 2:04.0
+  });
+  it('目標が遅いペースを下回れば、差はプラス', () => {
+    const row = aerobicRow({ kind: 'ergo', id: 1, date: 'x', type: 'UT2', menuBy: 'distance', distance: 8000, time: '34:00.0', targetSplit: '2:05.0' }, labels);
+    expect(row.targetGap).toBeCloseTo(127.5 - 125, 6);
+  });
+  it('目標なし・実績なしなら null(落ちない)', () => {
+    expect(aerobicRow({ kind: 'ergo', id: 1, date: 'x', type: 'UT2', distance: 8000, time: '33:04.0' }, labels).targetGap).toBeNull();
+    expect(aerobicRow({ kind: 'ergo', id: 2, date: 'x', type: 'UT2', targetSplit: '2:05.0' }, labels).targetGap).toBeNull();
+  });
+  it('区間ごとの心拍は、入力した本だけ(ない本は null)', () => {
+    const row = aerobicRow({
+      kind: 'ergo', id: 1, date: 'x', type: 'UT1', intervalBy: 'distance',
+      intervals: [{ distance: 1000, time: '3:30.0', avgHR: 163, maxHR: 174 }, { distance: 1000, time: '3:31.0' }, { distance: 1000, time: '3:32.0', avgHR: 172 }],
+    }, labels);
+    expect(row.pieceHr).toEqual([163, null, 172]);
+  });
+  it('指導してくれた人', () => {
+    expect(aerobicRow({ kind: 'ergo', id: 1, date: 'x', type: 'UT2', coach: '三浦さん' }, labels).coach).toBe('三浦さん');
+  });
+});
+
+describe('今週の痛み・違和感', () => {
+  const dates = ['2026-10-12', '2026-10-13', '2026-10-14'];
+  it('部位ごとに、日数と最大のつらさ(とその日)をまとめ、強い順に並べる', () => {
+    const r = painSummary([
+      { kind: 'condition', date: '2026-10-12', pains: [{ part: 'lowback', level: 2 }, { part: 'hip', level: 1 }] },
+      { kind: 'condition', date: '2026-10-13', pains: [{ part: 'lowback', level: 3 }] },
+      { kind: 'condition', date: '2026-10-14', pains: [{ part: 'lowback', level: 2 }] },
+    ], dates);
+    expect(r).toEqual([
+      { part: 'lowback', days: 3, max: 3, maxDate: '2026-10-13' },
+      { part: 'hip', days: 1, max: 1, maxDate: '2026-10-12' },
+    ]);
+  });
+  it('同じ日に何度か記録しても、日数は1日と数える', () => {
+    const r = painSummary([
+      { kind: 'condition', date: '2026-10-12', pains: [{ part: 'knee', level: 1 }] },
+      { kind: 'condition', date: '2026-10-12', pains: [{ part: 'knee', level: 2 }] },
+    ], dates);
+    expect(r[0]).toMatchObject({ days: 1, max: 2 });
+  });
+  it('別の週・痛みのない記録・コンディション以外は数えない。なければ空', () => {
+    expect(painSummary([
+      { kind: 'condition', date: '2026-10-20', pains: [{ part: 'knee', level: 3 }] },
+      { kind: 'condition', date: '2026-10-12', sleep: 7 },
+      { kind: 'ergo', date: '2026-10-12', pains: [{ part: 'knee', level: 3 }] },
+    ], dates)).toEqual([]);
+    expect(painSummary([], dates)).toEqual([]);
+  });
+  it('週次レポートに含まれる', () => {
+    const r = buildWeekReport({ entries: [{ kind: 'condition', id: 1, date: '2026-10-13', pains: [{ part: 'rib', level: 4 }] }], weekStart: '2026-10-12', today: '2026-10-15', labels });
+    expect(r.pains).toEqual([{ part: 'rib', days: 1, max: 4, maxDate: '2026-10-13' }]);
   });
 });

@@ -9,6 +9,7 @@ import { ACTIVITIES, workoutSummary } from '../workouts.js';
 import {
   KINDS, cleanRecord, today, toDateStr, formatTimeInput, normalizeTime, calcSplit, parseTime, formatTime,
   normalizeRecord, exerciseLabel, wattsFromSplit, timeMenuLabel, SESSIONS, normalizeSession, epley1RM,
+  PAIN_PARTS, PAIN_LEVELS, painLabel,
 } from '../lib.js';
 
 // 「さらに記録する」に入っている項目の、見出し用の説明
@@ -63,13 +64,15 @@ const toPiece = (p) => {
     time: p.time ?? '',
     split: keep?.split ?? p.split ?? '',
     rate: p.rate != null ? String(p.rate) : '',
+    avgHR: p.avgHR != null ? String(p.avgHR) : '',
+    maxHR: p.maxHR != null ? String(p.maxHR) : '',
     _keep: keep,
   };
 };
 
 // メニューの「決めてある側」(距離メニューなら距離、時間メニューなら時間)を入れた n 本ぶんの行
 const makePieces = (by, spec, n) =>
-  Array.from({ length: n }, () => ({ distance: by === 'distance' ? spec : '', time: by === 'time' ? spec : '', split: '', rate: '' }));
+  Array.from({ length: n }, () => ({ distance: by === 'distance' ? spec : '', time: by === 'time' ? spec : '', split: '', rate: '', avgHR: '', maxHR: '' }));
 
 // 平均スプリットと、決めてある側(距離 or 時間)から、もう片方を計算する。
 // 編集で開いた記録のように、入力したスプリットと矛盾しない元の値があれば、それをそのまま使う
@@ -168,7 +171,7 @@ const daysAgo = (n) => {
 
 // 編集時に、フォームが扱わない項目(旧アプリの動画URLなど)は残し、フォームの項目は入れ替える
 function preservedFields(kind, rec) {
-  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'session', 'intervals', 'intervalBy', 'menuBy', 'watts', 'kind', 'sets', 'setList', 'nameFromMemo', 'timeText', 'hr', 'sleepHours', 'fatigueScore']);
+  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'session', 'intervals', 'intervalBy', 'menuBy', 'watts', 'kind', 'sets', 'pains', 'setList', 'nameFromMemo', 'timeText', 'hr', 'sleepHours', 'fatigueScore']);
   return Object.fromEntries(Object.entries(rec).filter(([k]) => !own.has(k)));
 }
 
@@ -185,6 +188,11 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   const [pieces, setPieces] = useState(() => (editing?.intervals ?? []).map(toPiece));
   // 開いたときの区間(何も触っていないことを見分けるため)
   const [initialSig] = useState(() => JSON.stringify([(editing?.intervals ?? []).map(toPiece).map(({ _keep: _k, ...p }) => p), inferBy(editing)]));
+  // 区間ごとの心拍(任意)。ふだんは閉じておき、入っている記録を開いたときだけ最初から開く
+  const [showPieceHr, setShowPieceHr] = useState(() => (editing?.intervals ?? []).some((p) => p.avgHR || p.maxHR));
+  // 痛み・違和感(任意): [{ part, level }]
+  const [pains, setPains] = useState(() => (kind === 'condition' && editing?.pains ? editing.pains.map(({ part, level }) => ({ part, level })) : []));
+  const [painOpen, setPainOpen] = useState(() => !!editing?.pains?.length);
   const [setRows, setSetRows] = useState(() => (kind === 'strength' && editing ? setRowsFrom(editing) : [emptySetRow()]));
   // 「さらに記録する」は、ふだんは閉じておく。値が入っている記録を開いたときだけ、最初から開く
   const [advOpen, setAdvOpen] = useState(() => !!editing && KINDS[kind].fields.some((f) => f.advanced && editing[f.key]));
@@ -202,6 +210,9 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
     setBy('distance');
     setPieces([]);
     setSetRows([emptySetRow()]);
+    setPains([]);
+    setPainOpen(false);
+    setShowPieceHr(false);
     setAdvOpen(false);
     setHint('');
   };
@@ -262,7 +273,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
       setValues((cur) => ({ ...cur, type: r.type ?? cur.type, ...(r.boat && { boat: r.boat }), distance: '', time: '', split: '' }));
       setMode('intervals');
       setBy(menuBy);
-      setPieces(r.intervals.map((p) => ({ distance: menuBy === 'distance' ? String(p.distance) : '', time: menuBy === 'time' ? p.time : '', split: '', rate: '' })));
+      setPieces(r.intervals.map((p) => ({ distance: menuBy === 'distance' ? String(p.distance) : '', time: menuBy === 'time' ? p.time : '', split: '', rate: '', avgHR: '', maxHR: '' })));
     } else {
       const menuBy = r.menuBy === 'time' ? 'time' : 'distance';
       setMode('single');
@@ -330,16 +341,20 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
         .map((p) => {
           const rate = Number(p.rate) > 0 ? Number(p.rate) : undefined;
           const r = derive(by, p);
+          const hr = {
+            ...(Number(p.avgHR) >= 30 && Number(p.avgHR) <= 230 && { avgHR: Number(p.avgHR) }),
+            ...(Number(p.maxHR) >= 30 && Number(p.maxHR) <= 230 && { maxHR: Number(p.maxHR) }),
+          };
           if (r) {
             const watts = Math.round(wattsFromSplit(parseTime(r.split)));
-            return { full: true, sec: r.sec, distance: r.distance, time: formatTime(r.sec), split: r.split, ...(showWatts && { watts }), ...(rate != null && { rate }) };
+            return { full: true, sec: r.sec, distance: r.distance, time: formatTime(r.sec), split: r.split, ...(showWatts && { watts }), ...(rate != null && { rate }), ...hr };
           }
           const target = by === 'distance'
             ? Number(p.distance) > 0 ? { distance: Number(p.distance) } : null
             : parseTime(p.time) > 0 ? { time: normalizeTime(p.time) } : null;
           const splitOnly = parseTime(p.split) > 0 ? { split: normalizeTime(p.split) } : null;
-          if (!target && !splitOnly) return null;
-          return { full: false, ...target, ...splitOnly, ...(rate != null && { rate }) };
+          if (!target && !splitOnly && !Object.keys(hr).length) return null;
+          return { full: false, ...target, ...splitOnly, ...(rate != null && { rate }), ...hr };
         })
         .filter(Boolean);
       const untouched = isEdit && JSON.stringify([pieces.map(({ _keep: _k, ...p }) => p), by]) === initialSig;
@@ -399,6 +414,8 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
         delete rec.pace;
         delete rec.avgSpeed;
       }
+    } else if (kind === 'condition') {
+      if (pains.length) rec.pains = pains.map(({ part, level }) => ({ part, level }));
     } else if (kind === 'strength') {
       const sets = rowsToSets(setRows);
       if (sets.length) rec.sets = sets;
@@ -537,7 +554,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
               </Field>
             )}
             {isRow && f.key === 'type' && mode === 'intervals' && (
-              <IntervalEditor by={by} showWatts={showWatts} pieces={pieces} setPieces={setPieces} done={donePieces} totals={{ dist: totalDist, sec: totalSec, watts: weighted('watts'), rate: weighted('rate') }} />
+              <IntervalEditor by={by} showWatts={showWatts} showHr={showPieceHr} setShowHr={setShowPieceHr} pieces={pieces} setPieces={setPieces} done={donePieces} totals={{ dist: totalDist, sec: totalSec, watts: weighted('watts'), rate: weighted('rate') }} />
             )}
           </Fragment>
         ))}
@@ -553,6 +570,15 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
             {by === 'distance' ? <>タイム <b className="text-ink">{formatTime(single.sec)}</b></> : <>距離 <b className="text-ink">{single.distance}m</b></>}
             {showWatts && <> · 平均 <b className="text-ink">{singleWatts}W</b></>}
           </p>
+        )}
+
+        {kind === 'condition' && (
+          <div>
+            <button type="button" onClick={() => setPainOpen((o) => !o)} className="text-sm font-medium text-brand">
+              {painOpen ? '▾' : '▸'} 痛み・違和感を記録する(部位と程度)
+            </button>
+            {painOpen && <div className="mt-3"><PainEditor pains={pains} setPains={setPains} /></div>}
+          </div>
         )}
 
         {advFields.length > 0 && (
@@ -600,6 +626,40 @@ function withCurrentOption(f, value) {
   if (f.type !== 'choice' || !value || f.options.some((o) => o.id === value)) return f;
   const label = f.key === 'exercise' ? exerciseLabel(value) : String(value);
   return { ...f, options: [{ id: value, label }, ...f.options] };
+}
+
+// 痛み・違和感: 部位をタップして選び、選んだ部位ごとに、つらさ(1〜5)を選ぶ
+function PainEditor({ pains, setPains }) {
+  const toggle = (part) => setPains((ps) => (ps.some((p) => p.part === part) ? ps.filter((p) => p.part !== part) : [...ps, { part, level: 2 }]));
+  const setLevel = (part, level) => setPains((ps) => ps.map((p) => (p.part === part ? { ...p, level } : p)));
+  return (
+    <div className="space-y-3 rounded-md border border-line bg-white p-3">
+      <div className="flex flex-wrap gap-2">
+        {PAIN_PARTS.map((o) => (
+          <Chip key={o.id} active={pains.some((p) => p.part === o.id)} onClick={() => toggle(o.id)}>{o.label}</Chip>
+        ))}
+      </div>
+      {pains.map((p) => (
+        <div key={p.part}>
+          <p className="mb-1 text-xs text-mute">{painLabel(p.part)} のつらさ: <b className="text-ink">{PAIN_LEVELS.find((l) => l.level === p.level)?.label}</b></p>
+          <div className="flex gap-1.5">
+            {PAIN_LEVELS.map((l) => (
+              <button
+                type="button"
+                key={l.level}
+                onClick={() => setLevel(p.part, l.level)}
+                aria-label={`${painLabel(p.part)} ${l.label}`}
+                className={`h-9 flex-1 rounded-md border text-sm font-semibold ${p.level === l.level ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'}`}
+              >
+                {l.level}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {pains.length === 0 && <p className="text-xs text-mute">痛む場所をタップしてください。</p>}
+    </div>
+  );
 }
 
 // 筋トレのセットごとの入力
@@ -651,7 +711,7 @@ function SetsEditor({ rows, setRows }) {
 const DISTANCE_PRESETS = [250, 500, 750, 1000, 1500, 2000, 3000];
 const TIME_PRESETS = [60, 120, 180, 240, 300, 480, 600, 1200];
 
-function IntervalEditor({ by, showWatts, pieces, setPieces, done, totals }) {
+function IntervalEditor({ by, showWatts, showHr, setShowHr, pieces, setPieces, done, totals }) {
   const target = by === 'distance' ? 'distance' : 'time'; // メニューで決めてある側
   const spec = pieces[0]?.[target] ?? '';
   const update = (i, patch) => setPieces((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -729,9 +789,20 @@ function IntervalEditor({ by, showWatts, pieces, setPieces, done, totals }) {
                 {by === 'distance' ? `タイム ${formatTime(r.sec)}` : `距離 ${r.distance}m`}{showWatts && ` · ${watts}W`}
               </p>
             )}
+            {showHr && (
+              <div className="grid grid-cols-[1.25rem_1fr_1fr] items-center gap-1.5">
+                <span />
+                <input className="input !px-2 !py-1.5 text-sm" type="number" inputMode="numeric" aria-label={`${i + 1}本目の平均心拍`} placeholder="平均心拍" value={p.avgHR} onChange={(e) => update(i, { avgHR: e.target.value })} />
+                <input className="input !px-2 !py-1.5 text-sm" type="number" inputMode="numeric" aria-label={`${i + 1}本目の最大心拍`} placeholder="最大心拍" value={p.maxHR} onChange={(e) => update(i, { maxHR: e.target.value })} />
+              </div>
+            )}
           </div>
         );
       })}
+
+      <button type="button" onClick={() => setShowHr(!showHr)} className="text-sm font-medium text-brand">
+        {showHr ? '▾' : '▸'} 区間ごとの心拍も入れる(任意)
+      </button>
 
       {done.length > 0 && (
         <p className="border-t border-line pt-2 text-sm text-mute">

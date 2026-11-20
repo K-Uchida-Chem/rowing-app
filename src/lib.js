@@ -96,7 +96,35 @@ export const FEELINGS = [
 ];
 
 const STATUS_OPTIONS = Object.entries(STATUS_LABEL).map(([id, label]) => ({ id, label }));
+// 指導してもらったとき(任意)。誰から・どんな助言か
+const COACH_FIELDS = [
+  { key: 'coach', label: '指導・助言してくれた人', type: 'text', placeholder: '例: 三浦さん', advanced: true },
+  { key: 'advice', label: '助言の内容', type: 'textarea', rows: 2, placeholder: '例: 上体の筋肉をダイナミックに使う', advanced: true },
+];
 const MEMO_FIELD = { key: 'memo', label: 'メモ', type: 'textarea', rows: 3, placeholder: 'その日の感想、気づいたこと、痛みなど' };
+
+// 痛み・違和感の部位と程度(コンディションの記録に、任意で付ける)
+export const PAIN_PARTS = [
+  { id: 'lowback', label: '腰' },
+  { id: 'hip', label: '股関節' },
+  { id: 'shoulder', label: '肩' },
+  { id: 'knee', label: '膝' },
+  { id: 'back', label: '背中' },
+  { id: 'rib', label: '肋骨・胸' },
+  { id: 'thigh', label: 'もも・ハム' },
+  { id: 'calf', label: 'ふくらはぎ・足首' },
+  { id: 'neck', label: '首' },
+  { id: 'wrist', label: '腕・手首' },
+  { id: 'other', label: 'その他' },
+];
+export const PAIN_LEVELS = [
+  { level: 1, label: '違和感' },
+  { level: 2, label: '軽い痛み' },
+  { level: 3, label: '痛い' },
+  { level: 4, label: 'かなり痛い' },
+  { level: 5, label: '動けない' },
+];
+export const painLabel = (id) => PAIN_PARTS.find((p) => p.id === id)?.label ?? id;
 
 export const BOATS = [
   { id: '1x', label: 'シングル 1x' },
@@ -142,7 +170,7 @@ export const KINDS = {
     label: 'エルゴ',
     sessionable: true,
     // 数字がなくても、メモ・ねらい・予定があれば保存できる(「腰痛で断念」のような記録)
-    requireAny: ['distance', 'time', 'memo', 'planned', 'aim', 'status'],
+    requireAny: ['distance', 'time', 'memo', 'planned', 'aim', 'status', 'coach', 'advice', 'targetSplit'],
     menuKeys: ['type', 'distance'],
     menuLabel: (r) =>
       `${labelOf(ERGO_ZONES, r.type)} ${r.intervals?.length ? intervalLabel(r) : r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}m`}`,
@@ -150,7 +178,7 @@ export const KINDS = {
       // 強度は、もう一度タップすると「なし」に戻せる(技術メモだけの記録など)
       { key: 'type', label: '強度ゾーン', type: 'choice', options: ERGO_ZONES, default: 'UT2', optional: true },
       { key: 'distance', label: '距離 (m)', type: 'number', presets: [500, 1000, 2000, 5000, 6000, 10000] },
-      { key: 'time', label: '時間(数字だけ入力: 3000 → 30:00.0)', type: 'time', presets: [600, 1200, 1800, 2400, 3600] },
+      { key: 'time', label: '時間(数字だけ入力: 30000 → 30:00.0)', type: 'time', presets: [600, 1200, 1800, 2400, 3600] },
       { key: 'split', label: '平均スプリット(/500m・数字だけ入力: 1463 → 1:46.3)', type: 'time' },
       { key: 'rate', label: 'レート (spm)', type: 'number' },
       { key: 'avgHR', label: '平均心拍(全体)', type: 'number' },
@@ -164,7 +192,9 @@ export const KINDS = {
       { key: 'status', label: '予定どおりできたか', type: 'choice', options: STATUS_OPTIONS, default: '', optional: true, advanced: true },
       { key: 'planned', label: '予定していたメニュー', type: 'text', placeholder: '例: 20分×3 / UTB2 30×2', advanced: true },
       { key: 'aim', label: 'ねらい・目標', type: 'text', placeholder: '例: 目標2:05。セット早く、上体我慢', advanced: true },
+      { key: 'targetSplit', label: '目標スプリット(/500m・数字だけ入力: 2050 → 2:05.0)', type: 'time', advanced: true },
       { key: 'rest', label: 'レスト(インターバルの間)', type: 'text', placeholder: '例: 1分 / r40sec', advanced: true },
+      ...COACH_FIELDS,
       { key: 'videoUrl', label: '動画のURL', type: 'text', placeholder: 'https://…', advanced: true },
     ],
     // スプリットと平均ワットは自動計算。インターバルのワットは区間ごとの時間加重平均を入力画面で計算済み
@@ -189,11 +219,12 @@ export const KINDS = {
     label: '筋トレ',
     sessionable: true,
     // セットは入力画面の専用欄(sets: [{weight, reps}, …])。重量・回数が入っていれば保存できる
-    requireAny: ['sets', 'memo'],
+    requireAny: ['sets', 'memo', 'coach', 'advice'],
     fields: [
       { key: 'exercise', label: '種目', type: 'choice', options: EXERCISES, default: 'squat' },
       { key: 'exerciseName', label: '種目名', type: 'text', placeholder: '例: ブルガリアンスクワット', showIf: (v) => v.exercise === 'other' },
       MEMO_FIELD,
+      ...COACH_FIELDS,
       { key: 'videoUrl', label: '動画のURL', type: 'text', placeholder: 'https://…', advanced: true },
     ],
     prepare: (r) => {
@@ -214,7 +245,7 @@ export const KINDS = {
     table: 'crossTrainingRecords',
     label: 'ラン/バイク',
     sessionable: true,
-    requireAny: ['distance', 'time', 'memo', 'planned', 'status'],
+    requireAny: ['distance', 'time', 'memo', 'planned', 'status', 'coach', 'advice'],
     menuKeys: ['type', 'distance'],
     menuLabel: (r) => `${r.type === 'cycling' ? 'バイク' : r.type === 'other' ? 'その他' : 'ラン'} ${r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}km`}`,
     fields: [
@@ -223,7 +254,7 @@ export const KINDS = {
         options: [{ id: 'running', label: 'ランニング' }, { id: 'cycling', label: 'サイクリング' }, { id: 'other', label: 'その他(補強・アクティブレストなど)' }],
       },
       { key: 'distance', label: '距離 (km)', type: 'number', presets: [3, 5, 10, 20] },
-      { key: 'time', label: '時間(数字だけ入力: 3000 → 30:00.0)', type: 'time', presets: [1200, 1800, 2400, 3600, 5400, 7200] },
+      { key: 'time', label: '時間(数字だけ入力: 30000 → 30:00.0)', type: 'time', presets: [1200, 1800, 2400, 3600, 5400, 7200] },
       { key: 'pace', label: '平均ペース(/km・数字だけ入力: 5300 → 5:30.0)', type: 'time' },
       { key: 'avgSpeed', label: '平均速度 (km/h)', type: 'number', step: 0.1 },
       { key: 'avgHR', label: '平均心拍', type: 'number' },
@@ -231,6 +262,7 @@ export const KINDS = {
       MEMO_FIELD,
       { key: 'status', label: '予定どおりできたか', type: 'choice', options: STATUS_OPTIONS, default: '', optional: true, advanced: true },
       { key: 'planned', label: '予定していたメニュー', type: 'text', placeholder: '例: 25分×2', advanced: true },
+      ...COACH_FIELDS,
       { key: 'videoUrl', label: '動画のURL', type: 'text', placeholder: 'https://…', advanced: true },
     ],
     prepare: (r) => r,
@@ -242,7 +274,7 @@ export const KINDS = {
     table: 'conditionRecords',
     label: 'コンディション',
     // 痛みや違和感のメモだけでも保存できる
-    requireAny: ['sleep', 'fatigue', 'restingHR', 'condition', 'memo'],
+    requireAny: ['sleep', 'fatigue', 'restingHR', 'condition', 'memo', 'pains'],
     fields: [
       { key: 'sleep', label: '睡眠時間 (h)', type: 'number', presets: [5, 6, 7, 8, 9] },
       { key: 'fatigue', label: '疲労度 (1:元気 〜 5:ぐったり)', type: 'scale', min: 1, max: 5 },
@@ -421,6 +453,25 @@ const saneRate = (v) => {
   return n > 0 && n <= 80 ? n : undefined;
 };
 
+// 心拍として、ありえない値(入力ミス)は捨てる
+const saneHR = (v) => {
+  const n = num(v);
+  return n >= 30 && n <= 230 ? n : undefined;
+};
+
+// 痛みの記録: 部位とつらさ(1〜5)がそろったものだけ。同じ部位は1つにまとめる(強いほうを残す)
+export function cleanPains(list) {
+  if (!Array.isArray(list)) return undefined;
+  const byPart = new Map();
+  for (const p of list) {
+    const level = Math.round(Number(p?.level));
+    if (!p?.part || !(level >= 1 && level <= 5)) continue;
+    byPart.set(p.part, Math.max(level, byPart.get(p.part) ?? 0));
+  }
+  const out = [...byPart].map(([part, level]) => ({ part, level }));
+  return out.length ? out : undefined;
+}
+
 export function normalizeRecord(kind, r) {
   switch (kind) {
     case 'ergo':
@@ -436,9 +487,9 @@ export function normalizeRecord(kind, r) {
           let time = sec > 0 ? formatTime(sec) : undefined;
           if (!(distance > 0) && sec > 0 && splitSec > 0) distance = Math.round((sec / splitSec) * 500);
           if (!time && distance > 0 && splitSec > 0) time = formatTime((splitSec * distance) / 500);
-          return { ...p, distance: distance > 0 ? distance : undefined, time, split: splitSec > 0 ? normalizeTime(p.split) : undefined, rate: saneRate(p.rate) };
+          return { ...p, distance: distance > 0 ? distance : undefined, time, split: splitSec > 0 ? normalizeTime(p.split) : undefined, rate: saneRate(p.rate), avgHR: saneHR(p.avgHR), maxHR: saneHR(p.maxHR) };
         })
-        .filter((p) => p.distance || p.time || p.split);
+        .filter((p) => p.distance || p.time || p.split || p.avgHR || p.maxHR);
       // 全区間の距離が空なら、時間メニュー
       const inferredBy = raw.length && raw.every((p) => !(num(p.distance) > 0)) ? 'time' : undefined;
       return {
@@ -451,6 +502,7 @@ export function normalizeRecord(kind, r) {
         maxHR: num(r.maxHR),
         intervals: intervals.length ? intervals : undefined,
         intervalBy: r.intervalBy ?? inferredBy,
+        targetSplit: parseTime(r.targetSplit) > 0 ? normalizeTime(r.targetSplit) : undefined,
       };
     }
     case 'strength': {
@@ -476,6 +528,7 @@ export function normalizeRecord(kind, r) {
     case 'condition':
       return {
         ...r,
+        pains: cleanPains(r.pains),
         sleep: num(r.sleep ?? r.sleepHours),
         fatigue: num(r.fatigue ?? r.fatigueScore),
         restingHR: num(r.restingHR),

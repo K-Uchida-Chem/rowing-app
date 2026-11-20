@@ -1,6 +1,6 @@
 // 履歴・今日の画面に出す「1行ぶんの表示」を種類ごとに作る
 import {
-  ERGO_ZONES, KINDS, STATUS_LABEL, FEELINGS, labelOf, exerciseLabel, intervalLabel, formatDate, boatShort, parseTime, formatTime, timeMenuLabel,
+  ERGO_ZONES, KINDS, STATUS_LABEL, FEELINGS, PAIN_LEVELS, painLabel, labelOf, exerciseLabel, intervalLabel, formatDate, boatShort, parseTime, formatTime, timeMenuLabel,
 } from './lib.js';
 import { minutesOf, readiness } from './stats.js';
 
@@ -45,13 +45,21 @@ export function rowOf(e) {
   if (e.intervals?.length) {
     e.intervals.forEach((p, i) => {
       const main = e.intervalBy === 'time' ? (p.distance ? `${p.distance}m` : p.time) : p.time || (p.distance ? `${p.distance}m` : '');
-      lines.push(join([`${i + 1}本目`, main, p.split && `@${p.split}`, p.watts && `${p.watts}W`, p.rate && `${p.rate}spm`], '  '));
+      const hr = p.avgHR && p.maxHR ? `HR${p.avgHR}/${p.maxHR}` : p.avgHR ? `HR${p.avgHR}` : p.maxHR ? `最大HR${p.maxHR}` : '';
+      lines.push(join([`${i + 1}本目`, main, p.split && `@${p.split}`, p.watts && `${p.watts}W`, p.rate && `${p.rate}spm`, hr], '  '));
     });
   }
   if (e.planned) lines.push(`予定: ${e.planned}`);
   if (e.aim) lines.push(`ねらい: ${e.aim}`);
+  // 目標スプリットがあれば、実績との差を添える(マイナスが目標より速い)
+  if (e.targetSplit) {
+    const gap = parseTime(e.split) && parseTime(e.targetSplit) ? parseTime(e.split) - parseTime(e.targetSplit) : null;
+    lines.push(`目標 ${e.targetSplit}${gap === null ? '' : ` / 実績 ${e.split}(${gap <= 0 ? '−' : '+'}${Math.abs(gap).toFixed(1)}秒)`}`);
+  }
   if (e.rest) lines.push(`レスト: ${e.rest}`);
   if (e.event || e.result) lines.push(join([e.event && `大会: ${e.event}`, e.result && `結果: ${e.result}`]));
+  if (e.coach || e.advice) lines.push(`${e.coach ? `指導: ${e.coach}` : '助言'}${e.advice ? `${e.coach ? ' — ' : ': '}${e.advice}` : ''}`);
+  if (e.pains?.length) lines.push(`痛み・違和感: ${e.pains.map((p) => `${painLabel(p.part)} ${PAIN_LEVELS.find((l) => l.level === p.level)?.label ?? p.level}`).join('、')}`);
   if (e.technique) lines.push(`振り返り: ${e.technique}`);
   if (e.memo && !e.nameFromMemo) lines.push(e.memo);
   const links = e.videoUrl ? [{ url: String(e.videoUrl), label: '動画' }] : [];
@@ -98,6 +106,12 @@ export function rowOf(e) {
     case 'condition': {
       const feeling = FEELINGS.find((f) => f.id === e.condition)?.label;
       const title = join([e.sleep && `睡眠 ${e.sleep}h`, e.fatigue && `疲労 ${e.fatigue}/5`, feeling && `体調 ${feeling}`]);
+      // 痛みだけの記録は、見出しに痛みの内容を出す(同じ内容の行は重ねない)
+      if (!title && e.pains?.length) {
+        const i = lines.findIndex((l) => l.startsWith('痛み・違和感: '));
+        const text = i >= 0 ? lines.splice(i, 1)[0].replace('痛み・違和感: ', '') : '';
+        return out(`痛み: ${text}`, join([e.restingHR && `安静時HR ${e.restingHR}`, e.overallRPE && `全体RPE ${e.overallRPE}`, e.weather]));
+      }
       return out(title || '体調メモ', join([e.restingHR && `安静時HR ${e.restingHR}`, e.overallRPE && `全体RPE ${e.overallRPE}`, e.weather]));
     }
     case 'weight':

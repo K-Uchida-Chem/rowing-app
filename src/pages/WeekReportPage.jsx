@@ -5,7 +5,7 @@ import { Chart, CategoryScale, LinearScale, LineElement, PointElement, Tooltip, 
 import { Line } from 'react-chartjs-2';
 import db from '../db.js';
 import { useEntries } from '../useEntries.js';
-import { ERGO_ZONES, STATUS_LABEL, exerciseLabel, boatShort } from '../lib.js';
+import { ERGO_ZONES, STATUS_LABEL, PAIN_LEVELS, painLabel, exerciseLabel, boatShort } from '../lib.js';
 import { buildWeekReport, dailyWeightMap, weightSeries, UNCLASSIFIED } from '../report/calc.js';
 import { formatSplit, formatDuration, formatDistance, formatDelta, formatKg, DASH } from '../report/format.js';
 import { weekStartOf, addDays, todayInTz, formatMD } from '../report/week.js';
@@ -74,6 +74,7 @@ export default function WeekReportPage() {
       <Techniques items={report.techniques} />
       <Intensity data={report.intensity} />
       <Condition data={report.condition} />
+      <Pains items={report.pains} />
       <WeekNotes key={report.start} weekStart={report.start} />
     </>
   );
@@ -230,6 +231,16 @@ function AerobicRow({ row: r }) {
         )}
       </p>
       {r.splits.length > 1 && <p className="text-[11px] leading-snug tabular-nums text-mute">{r.splits.map(formatSplit).join(' / ')}</p>}
+      {r.pieceHr.some((v) => v !== null) && (
+        <p className="text-[11px] leading-snug tabular-nums text-mute">HR {r.pieceHr.map((v) => v ?? '–').join(' / ')}</p>
+      )}
+      {r.targetSplit !== null && (
+        <p className="text-[11px] leading-snug tabular-nums text-mute">
+          目標 @{formatSplit(r.targetSplit)}
+          {r.targetGap !== null && <> · 実績との差 {formatDelta(Math.round(r.targetGap * 10) / 10, (n) => `${n.toFixed(1)}秒`)}</>}
+        </p>
+      )}
+      {r.coach && <p className="text-[11px] leading-snug text-mute">指導: {r.coach}</p>}
       {r.planned && <p className="text-[11px] leading-snug text-mute">予定: {r.planned}</p>}
     </div>
   );
@@ -354,6 +365,26 @@ function Intensity({ data }) {
         </tbody>
       </table>
       <p className="mt-1 text-[11px] text-mute">割合は時間で計算しています。</p>
+    </section>
+  );
+}
+
+// ─── 今週の痛み・違和感 ──────────────────────────────
+function Pains({ items }) {
+  if (!items.length) return null; // 記録がなければ、この項目は省略する
+  return (
+    <section>
+      <h2 className="label mb-1">今週の痛み・違和感</h2>
+      <ul className="space-y-0.5 text-[12px] tabular-nums">
+        {items.map((p) => (
+          <li key={p.part} className="flex items-baseline justify-between border-t border-line py-1 first:border-t-0">
+            <span className="font-semibold">{painLabel(p.part)}</span>
+            <span className="text-mute">
+              {p.days}日 · 最大 {PAIN_LEVELS.find((l) => l.level === p.max)?.label}({formatMD(p.maxDate)})
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
