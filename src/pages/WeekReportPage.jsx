@@ -5,7 +5,7 @@ import { Chart, CategoryScale, LinearScale, LineElement, PointElement, Tooltip, 
 import { Line } from 'react-chartjs-2';
 import db from '../db.js';
 import { useEntries } from '../useEntries.js';
-import { ERGO_ZONES, exerciseLabel, boatShort } from '../lib.js';
+import { ERGO_ZONES, STATUS_LABEL, exerciseLabel, boatShort } from '../lib.js';
 import { buildWeekReport, dailyWeightMap, weightSeries, UNCLASSIFIED } from '../report/calc.js';
 import { formatSplit, formatDuration, formatDistance, formatDelta, formatKg, DASH } from '../report/format.js';
 import { weekStartOf, addDays, todayInTz, formatMD } from '../report/week.js';
@@ -14,7 +14,7 @@ Chart.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, L
 
 const NAVY = '#1b365d';
 const MUTE = '#8a8578';
-const LABELS = { exerciseLabel, boatLabel: boatShort, zoneLabel: (id) => id };
+const LABELS = { exerciseLabel, boatLabel: boatShort, zoneLabel: (id) => (id === 'race' ? 'レース' : id) };
 // エルゴと水上は、行の頭に小さなラベルを付けて見分ける(色は増やさず、枠だけ/塗りで区別)
 const KIND_TAG = {
   ergo: { label: 'エルゴ', cls: 'text-brand' },
@@ -221,6 +221,7 @@ function AerobicRow({ row: r }) {
         {KIND_TAG[r.kind] && <span className={`self-center rounded-sm border border-brand px-1 text-[10px] font-bold leading-4 ${KIND_TAG[r.kind].cls}`}>{KIND_TAG[r.kind].label}</span>}
         <span className="text-[13px] font-semibold">{r.name}</span>
         {r.boat && <span className="text-[11px] text-mute">{r.boat}</span>}
+        {STATUS_LABEL[r.status] && <span className="self-center rounded-sm border border-accent px-1 text-[10px] font-bold leading-4 text-accent">{STATUS_LABEL[r.status]}</span>}
         <span className="text-[12px] tabular-nums text-ink/80">{metrics.join('  ')}</span>
         {r.vs && (
           <span className="text-[11px] tabular-nums text-mute">
@@ -229,6 +230,7 @@ function AerobicRow({ row: r }) {
         )}
       </p>
       {r.splits.length > 1 && <p className="text-[11px] leading-snug tabular-nums text-mute">{r.splits.map(formatSplit).join(' / ')}</p>}
+      {r.planned && <p className="text-[11px] leading-snug text-mute">予定: {r.planned}</p>}
     </div>
   );
 }

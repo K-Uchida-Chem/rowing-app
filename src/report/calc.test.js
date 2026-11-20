@@ -439,3 +439,60 @@ describe('技術的な振り返りのまとめ', () => {
     expect(buildWeekReport({ entries: [], weekStart: '2026-10-12', today: '2026-10-15', labels }).techniques).toEqual([]);
   });
 });
+
+describe('Slack由来の記録の形(バイク・その他・結果未入力の区間・種目名・レース・中止)', () => {
+  it('バイクは km/h、その他はペースも速度も出さない', () => {
+    const bike = aerobicRow({ kind: 'cross', id: 1, date: 'x', type: 'cycling', distance: 40, time: '1:36:00' }, labels);
+    expect(bike.name).toBe('バイク');
+    expect(bike.speedKmh).toBeCloseTo(25, 6);
+    expect(aerobicRow({ kind: 'cross', id: 2, date: 'x', type: 'bike', distance: 10, time: '20:00' }, labels).name).toBe('バイク');
+    const other = aerobicRow({ kind: 'cross', id: 3, date: 'x', type: 'other', distance: 5, time: '30:00' }, labels);
+    expect(other.name).toBe('その他');
+    expect(other.paceSecPerKm).toBeNull();
+    expect(other.speedKmh).toBeNull();
+  });
+  it('結果が未入力の時間メニュー(20分×3)も、種目名は「3×20分」になる', () => {
+    const row = aerobicRow({ kind: 'ergo', id: 1, date: 'x', type: 'UT2', intervalBy: 'time', time: '60:00.0', intervals: [{ time: '20:00.0' }, { time: '20:00.0' }, { time: '20:00.0' }] }, labels);
+    expect(row.name).toBe('3×20分 UT2');
+    expect(row.seconds).toBe(3600);
+    expect(row.distance).toBeNull();
+    expect(row.split).toBeNull(); // 距離がないので平均スプリットは出さない
+  });
+  it('距離が空で、時間とスプリットだけの区間でも、距離を補って平均スプリットが出る(読み込み後の形)', () => {
+    const row = aerobicRow({
+      kind: 'ergo', id: 2, date: 'x', type: 'UT2', intervalBy: 'time',
+      intervals: [{ distance: 6598, time: '30:00.0', split: '2:16.4' }, { distance: 6460, time: '30:00.0', split: '2:19.4' }],
+    }, labels);
+    expect(row.name).toBe('2×30分 UT2');
+    expect(row.distance).toBe(13058);
+    expect(row.split).toBeCloseTo((3600 / 13058) * 500, 6);
+  });
+  it('レースは強度の区分として数える。中止の印と予定が行に残る', () => {
+    const row = aerobicRow({ kind: 'water', id: 3, date: 'x', type: 'race', boat: '2x', distance: 1000, time: '3:44.0', status: 'partial', planned: '30×2' }, labels);
+    expect(row.zone).toBe('race');
+    expect(row.status).toBe('partial');
+    expect(row.planned).toBe('30×2');
+    const b = intensityBreakdown([{ kind: 'water', date: '2026-10-12', type: 'race', distance: 1000, time: '3:44.0' }], ['2026-10-12']);
+    expect(b.rows.map((r) => r.zone)).toEqual(['race']);
+  });
+  it('筋トレ: 自分で決めた種目名でまとめる(同じ名前は1行、別の名前は別の行)', () => {
+    const r = buildWeekReport({ entries: [
+      { kind: 'strength', id: 1, date: '2026-10-12', exercise: 'other', exerciseName: 'ショルダープレス', weight: 50, reps: 8, sets: 3 },
+      { kind: 'strength', id: 2, date: '2026-10-12', exercise: 'other', exerciseName: 'ベンチプル', weight: 60, reps: 8, sets: 3 },
+      { kind: 'strength', id: 3, date: '2026-10-12', exercise: 'other', exerciseName: 'ショルダープレス', weight: 55, reps: 6, sets: 1 },
+    ], weekStart: '2026-10-12', today: '2026-10-15', labels });
+    const s = r.days[0].sessions[0].strength;
+    expect(s.map((x) => x.name)).toEqual(['ショルダープレス', 'ベンチプル']);
+    expect(s[0].text).toBe('50kg×8×3, 55kg×6');
+  });
+  it('メモだけの記録(数字なし)でも、レポートに行が出て落ちない', () => {
+    const r = buildWeekReport({ entries: [
+      { kind: 'ergo', id: 1, date: '2026-10-12', type: 'UT2', memo: '腰痛で断念' },
+      { kind: 'water', id: 2, date: '2026-10-12', technique: 'バウサイ。フィニッシュでアウト逃げ' },
+      { kind: 'cross', id: 3, date: '2026-10-12', type: 'other', memo: 'アクティブレスト' },
+    ], weekStart: '2026-10-12', today: '2026-10-15', labels });
+    expect(r.days[0].hasTraining).toBe(true);
+    expect(r.days[0].sessions[0].aerobic).toHaveLength(3);
+    expect(r.techniques).toHaveLength(1);
+  });
+});

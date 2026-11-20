@@ -4,11 +4,20 @@ import { Minus, Plus, X } from 'lucide-react';
 import db from '../db.js';
 import { pbMessage } from '../stats.js';
 import HrChart from '../HrChart.jsx';
+import { emptySetRow, rowsToSets, setRowsFrom, inferBy } from '../recordForm.js';
 import { ACTIVITIES, workoutSummary } from '../workouts.js';
 import {
   KINDS, cleanRecord, today, toDateStr, formatTimeInput, normalizeTime, calcSplit, parseTime, formatTime,
-  normalizeRecord, exerciseLabel, wattsFromSplit, timeMenuLabel, SESSIONS, normalizeSession,
+  normalizeRecord, exerciseLabel, wattsFromSplit, timeMenuLabel, SESSIONS, normalizeSession, epley1RM,
 } from '../lib.js';
+
+// 「さらに記録する」に入っている項目の、見出し用の説明
+const ADVANCED_LABEL = {
+  ergo: '予定・ねらい・レスト・動画',
+  water: '予定・ねらい・レスト・動画',
+  cross: '予定・動画',
+  strength: '動画',
+};
 
 // エルゴと水上は同じ入力(単発/インターバル、距離/時間メニュー、スプリット…)
 const isRowKind = (k) => k === 'ergo' || k === 'water';
@@ -135,6 +144,8 @@ function storedCrossAvg(rec) {
 const valuesFrom = (kind, rec) => {
   const v = Object.fromEntries(KINDS[kind].fields.map((f) => [f.key, rec[f.key] ?? f.default ?? '']));
   if (KINDS[kind].sessionable) v.session = normalizeSession(rec.session);
+  // 旧データで、メモの1行目を種目名として読み替えたものは、メモからその1行を外す(種目名とメモが二重にならないように)
+  if (rec.nameFromMemo) v.memo = String(rec.memo ?? '').split('\n').slice(1).join('\n');
   // 旧い記録にはスプリットの入力値がないので、距離とタイムから出す
   if (kind === 'cross') {
     const avg = storedCrossAvg(rec);
@@ -157,7 +168,7 @@ const daysAgo = (n) => {
 
 // 編集時に、フォームが扱わない項目(旧アプリの動画URLなど)は残し、フォームの項目は入れ替える
 function preservedFields(kind, rec) {
-  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'session', 'intervals', 'intervalBy', 'menuBy', 'watts', 'kind', 'setList', 'hr', 'sleepHours', 'fatigueScore']);
+  const own = new Set([...KINDS[kind].fields.map((f) => f.key), 'split', 'estimated1RM', 'session', 'intervals', 'intervalBy', 'menuBy', 'watts', 'kind', 'sets', 'setList', 'nameFromMemo', 'timeText', 'hr', 'sleepHours', 'fatigueScore']);
   return Object.fromEntries(Object.entries(rec).filter(([k]) => !own.has(k)));
 }
 
@@ -170,8 +181,13 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   const [values, setValues] = useState(() => (editing ? valuesFrom(kind, editing) : workout ? workoutValues(kind, workout) : initialValues(kind)));
   const [mode, setMode] = useState(editing?.intervals?.length ? 'intervals' : 'single');
   // 距離メニュー(距離を決めてタイムを入れる) / 時間メニュー(時間を決めて距離を入れる)
-  const [by, setBy] = useState((editing?.intervals?.length ? editing.intervalBy : editing?.menuBy) === 'time' ? 'time' : 'distance');
+  const [by, setBy] = useState(() => inferBy(editing));
   const [pieces, setPieces] = useState(() => (editing?.intervals ?? []).map(toPiece));
+  // 開いたときの区間(何も触っていないことを見分けるため)
+  const [initialSig] = useState(() => JSON.stringify([(editing?.intervals ?? []).map(toPiece).map(({ _keep: _k, ...p }) => p), inferBy(editing)]));
+  const [setRows, setSetRows] = useState(() => (kind === 'strength' && editing ? setRowsFrom(editing) : [emptySetRow()]));
+  // 「さらに記録する」は、ふだんは閉じておく。値が入っている記録を開いたときだけ、最初から開く
+  const [advOpen, setAdvOpen] = useState(() => !!editing && KINDS[kind].fields.some((f) => f.advanced && editing[f.key]));
   const [hint, setHint] = useState('');
   const [toast, setToast] = useState('');
   const [recent, setRecent] = useState([]);
@@ -185,6 +201,8 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
     setMode('single');
     setBy('distance');
     setPieces([]);
+    setSetRows([emptySetRow()]);
+    setAdvOpen(false);
     setHint('');
   };
 
@@ -193,12 +211,12 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   useEffect(() => {
     if (kind !== 'strength' || isEdit) return;
     let cancelled = false;
-    db.strengthRecords.where('exercise').equals(exercise).toArray().then((rows) => {
+    db.strengthRecords.where('exercise').equals(exercise ?? '').toArray().then((rows) => {
       if (cancelled) return;
       const last = rows.filter((r) => r.date).map((r) => normalizeRecord('strength', r)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)[0];
       if (!last) return setHint('');
-      setValues((cur) => ({ ...cur, weight: last.weight ?? '', reps: last.reps ?? cur.reps, sets: last.sets ?? cur.sets }));
-      setHint(`前回(${last.date}): ${last.weight ? `${last.weight}kg` : '自重'} ${last.reps}回×${last.sets}`);
+      setSetRows(setRowsFrom(last));
+      setHint(`前回(${last.date})のセットを入れてあります。今日の内容に直してください。`);
     });
     return () => { cancelled = true; };
   }, [kind, exercise, isEdit]);
@@ -307,14 +325,39 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
       delete rec.distance;
       delete rec.time;
       delete rec.rate;
-      if (donePieces.length) {
-        rec.intervals = donePieces.map(({ sec: _sec, rate, watts, ...p }) => ({ ...p, ...(showWatts && { watts }), ...(rate != null && { rate }) }));
+      // 区間は、結果(スプリット)が未入力でも、メニュー(距離 or 時間)が入っていれば残す。「20分×3」だけの記録もできる
+      const pieceRecords = pieces
+        .map((p) => {
+          const rate = Number(p.rate) > 0 ? Number(p.rate) : undefined;
+          const r = derive(by, p);
+          if (r) {
+            const watts = Math.round(wattsFromSplit(parseTime(r.split)));
+            return { full: true, sec: r.sec, distance: r.distance, time: formatTime(r.sec), split: r.split, ...(showWatts && { watts }), ...(rate != null && { rate }) };
+          }
+          const target = by === 'distance'
+            ? Number(p.distance) > 0 ? { distance: Number(p.distance) } : null
+            : parseTime(p.time) > 0 ? { time: normalizeTime(p.time) } : null;
+          const splitOnly = parseTime(p.split) > 0 ? { split: normalizeTime(p.split) } : null;
+          if (!target && !splitOnly) return null;
+          return { full: false, ...target, ...splitOnly, ...(rate != null && { rate }) };
+        })
+        .filter(Boolean);
+      const untouched = isEdit && JSON.stringify([pieces.map(({ _keep: _k, ...p }) => p), by]) === initialSig;
+      if (pieceRecords.length) {
+        rec.intervals = pieceRecords.map(({ full: _f, sec: _s, ...p }) => p);
         rec.intervalBy = by;
-        rec.distance = totalDist;
-        rec.time = formatTime(totalSec);
-        if (showWatts) rec.watts = weighted('watts');
+        // 全区間で分かっているものだけ、合計にする
+        if (pieceRecords.every((p) => p.distance > 0)) rec.distance = pieceRecords.reduce((n, p) => n + p.distance, 0);
+        if (pieceRecords.every((p) => parseTime(p.time) > 0)) rec.time = formatTime(pieceRecords.reduce((n, p) => n + parseTime(p.time), 0));
+        if (showWatts && donePieces.length) rec.watts = weighted('watts');
         const rate = weighted('rate');
         if (rate != null) rec.rate = rate;
+        // 区間を何も触っていない記録は、保存してある合計をそのまま残す(区間の距離を計算で補うと、丸めで合計が数m動くため)
+        if (untouched) {
+          for (const k of ['distance', 'time', 'watts', 'rate']) {
+            if (editing[k] != null && editing[k] !== '' && !(k === 'watts' && !showWatts)) rec[k] = editing[k];
+          }
+        }
       }
     } else if (isRow) {
       // 単発: 決めてある側(距離 or 時間)とスプリットから、もう片方を出す
@@ -329,6 +372,10 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
         delete rec.distance;
       }
       rec.menuBy = by;
+    } else if (kind === 'cross' && rec.type === 'other') {
+      // その他(補強・アクティブレストなど): ペース・速度の計算はせず、入れたものをそのまま保存する
+      delete rec.pace;
+      delete rec.avgSpeed;
     } else if (kind === 'cross') {
       // ラン/バイク: 決めてある側(距離 or 時間)と平均ペース(速度)から、もう片方を出す
       const r = deriveCross(by, rec.type, rec);
@@ -345,12 +392,28 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
       }
       if (rec.type === 'cycling') delete rec.pace;
       rec.menuBy = by;
+      // 「10+5」のような足し算の書き方で入っていた時間を、触っていなければ、書き方も残す。
+      // (内訳の書き方で、走った時間そのものとは限らないので、ペース・速度は保存しない)
+      if (editing?.timeText && rec.time === editing.time) {
+        rec.timeText = editing.timeText;
+        delete rec.pace;
+        delete rec.avgSpeed;
+      }
+    } else if (kind === 'strength') {
+      const sets = rowsToSets(setRows);
+      if (sets.length) rec.sets = sets;
+      if (rec.exercise !== 'other') delete rec.exerciseName; // 種目を変えたあとに、隠れた種目名が残らないように
+    }
+    // レース以外では、大会名・結果は保存しない(隠れた入力が残らないように)
+    if (isRow && values.type !== 'race') {
+      delete rec.event;
+      delete rec.result;
     }
     return rec;
   };
 
   const record = buildRecord();
-  const canSave = isRow && mode === 'intervals' ? donePieces.length > 0 : def.requireAny.some((k) => record[k] != null);
+  const canSave = def.requireAny.some((k) => record[k] != null) || (isRow && mode === 'intervals' && !!record.intervals?.length);
 
   const save = async (andContinue) => {
     if (!canSave) return;
@@ -377,11 +440,17 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   // 単発: スプリットから出した、もう片方の値とワット(入力しながら見せる)
   const single = isRow && mode === 'single' ? derive(by, values) : null; // values に _keep も入っている
   const singleWatts = single ? Math.round(wattsFromSplit(parseTime(single.split))) : null;
-  const cross = kind === 'cross' ? deriveCross(by, values.type, values) : null;
+  const cross = kind === 'cross' && values.type !== 'other' ? deriveCross(by, values.type, values) : null;
   const hiddenKeys =
     kind === 'cross'
-      ? [by === 'distance' ? 'time' : 'distance', values.type === 'cycling' ? 'pace' : 'avgSpeed']
+      ? values.type === 'other'
+        ? ['pace', 'avgSpeed']
+        : [by === 'distance' ? 'time' : 'distance', values.type === 'cycling' ? 'pace' : 'avgSpeed']
       : !isRow ? [] : mode === 'intervals' ? ['distance', 'time', 'split', 'rate'] : by === 'distance' ? ['time'] : ['distance'];
+
+  // 隠す項目: メニューの種類に応じたもの + 条件つきの項目(レースのときだけ出す大会名など)
+  const hidden = [...hiddenKeys, ...def.fields.filter((f) => f.showIf && !f.showIf(values)).map((f) => f.key)];
+  const advFields = def.fields.filter((f) => f.advanced);
 
   return (
     <div className="space-y-4">
@@ -435,17 +504,13 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
         )}
 
         {hint && <p className="-mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs text-brand">{hint}</p>}
-        {editing?.setList?.length > 1 && (
-          <p className="-mt-2 rounded-md bg-brand-soft px-3 py-2 text-xs text-brand">
-            旧アプリの「セットごとの記録」です。更新すると、最も重いセットの重量・回数と、セット数にまとまります。
-          </p>
-        )}
-
-        {def.fields.map((f) => (
+        {def.fields.filter((f) => !f.advanced).map((f) => (
           <Fragment key={f.key}>
-            <Field label={f.label} hidden={hiddenKeys.includes(f.key)}>
+            <Field label={f.label} hidden={hidden.includes(f.key)}>
               <FieldInput f={withCurrentOption(f, values[f.key])} value={values[f.key]} onChange={(v) => set(f.key, v)} />
             </Field>
+
+            {kind === 'strength' && f.key === 'exerciseName' && <SetsEditor rows={setRows} setRows={setSetRows} />}
 
             {/* ゾーンの直後に 単発/インターバル の切り替え */}
             {isRow && f.key === 'type' && (
@@ -456,7 +521,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
                 </div>
               </Field>
             )}
-            {(isRow || kind === 'cross') && f.key === 'type' && (
+            {(isRow || (kind === 'cross' && values.type !== 'other')) && f.key === 'type' && (
               <Field label="メニュー">
                 <div className="flex gap-2">
                   <Chip active={by === 'distance'} onClick={() => changeBy('distance')}>距離メニュー</Chip>
@@ -489,6 +554,23 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
             {showWatts && <> · 平均 <b className="text-ink">{singleWatts}W</b></>}
           </p>
         )}
+
+        {advFields.length > 0 && (
+          <div>
+            <button type="button" onClick={() => setAdvOpen((o) => !o)} className="text-sm font-medium text-brand">
+              {advOpen ? '▾' : '▸'} さらに記録する({ADVANCED_LABEL[kind]})
+            </button>
+            {advOpen && (
+              <div className="mt-4 space-y-5">
+                {advFields.map((f) => (
+                  <Field key={f.key} label={f.label}>
+                    <FieldInput f={withCurrentOption(f, values[f.key])} value={values[f.key]} onChange={(v) => set(f.key, v)} />
+                  </Field>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -518,6 +600,52 @@ function withCurrentOption(f, value) {
   if (f.type !== 'choice' || !value || f.options.some((o) => o.id === value)) return f;
   const label = f.key === 'exercise' ? exerciseLabel(value) : String(value);
   return { ...f, options: [{ id: value, label }, ...f.options] };
+}
+
+// 筋トレのセットごとの入力
+function SetsEditor({ rows, setRows }) {
+  const update = (i, patch) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const sets = rowsToSets(rows);
+  const volume = sets.reduce((n, x) => n + x.weight * x.reps, 0);
+  const best = Math.max(0, ...sets.filter((x) => x.weight > 0).map((x) => epley1RM(x.weight, x.reps)));
+
+  return (
+    <div className="space-y-2 rounded-md border border-line bg-white p-3">
+      <div className="grid grid-cols-[1.25rem_1fr_1fr_3.4rem_1.5rem] items-center gap-1.5 text-xs text-mute">
+        <span /> <span>重量 (kg・自重は空欄)</span> <span>回数</span> <span>セット数</span> <span />
+      </div>
+      {rows.map((r, i) => (
+        <div key={i} className="grid grid-cols-[1.25rem_1fr_1fr_3.4rem_1.5rem] items-center gap-1.5">
+          <span className="text-sm text-mute">{i + 1}</span>
+          <input className="input !px-2" type="number" inputMode="decimal" step="2.5" aria-label={`${i + 1}行目の重量`} value={r.weight} onChange={(e) => update(i, { weight: e.target.value })} />
+          <input className="input !px-2" type="number" inputMode="numeric" aria-label={`${i + 1}行目の回数`} value={r.reps} onChange={(e) => update(i, { reps: e.target.value })} />
+          <input className="input !px-2" type="number" inputMode="numeric" min="1" aria-label={`${i + 1}行目のセット数`} value={r.count} onChange={(e) => update(i, { count: e.target.value })} />
+          <button
+            type="button"
+            aria-label={`${i + 1}行目を削除`}
+            onClick={() => setRows((rs) => (rs.length > 1 ? rs.filter((_, j) => j !== i) : [emptySetRow()]))}
+            className="p-0.5 text-mute"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => setRows((rs) => [...rs, { ...(rs[rs.length - 1] ?? emptySetRow()), count: '1' }])}
+        className="w-full rounded-md border border-dashed border-brand py-2 text-sm font-medium text-brand"
+      >
+        ＋ 重量やセット数が違う行を追加
+      </button>
+      {sets.length > 0 && (
+        <p className="border-t border-line pt-2 text-sm text-mute">
+          {sets.length}セット
+          {volume > 0 && <> · 総挙上量 <b className="text-ink">{Math.round(volume).toLocaleString()}kg</b></>}
+          {best > 0 && <> · 推定1RM <b className="text-ink">{Math.round(best)}kg</b></>}
+        </p>
+      )}
+    </div>
+  );
 }
 
 const DISTANCE_PRESETS = [250, 500, 750, 1000, 1500, 2000, 3000];
@@ -638,7 +766,7 @@ function FieldInput({ f, value, onChange }) {
       return (
         <div className="flex flex-wrap gap-2">
           {f.options.map((o) => (
-            <Chip key={o.id} active={value === o.id} onClick={() => onChange(o.id)}>{o.label}</Chip>
+            <Chip key={o.id} active={value === o.id} onClick={() => onChange(f.optional && value === o.id ? '' : o.id)}>{o.label}</Chip>
           ))}
         </div>
       );
@@ -677,7 +805,8 @@ function FieldInput({ f, value, onChange }) {
     case 'textarea':
       return (
         <textarea
-          className="input min-h-32 resize-y leading-relaxed"
+          className="input min-h-20 resize-y leading-relaxed"
+          rows={f.rows ?? 4}
           placeholder={f.placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -726,7 +855,7 @@ function FieldInput({ f, value, onChange }) {
       );
 
     default:
-      return <input className="input" value={value} onChange={(e) => onChange(e.target.value)} />;
+      return <input className="input" placeholder={f.placeholder} value={value} onChange={(e) => onChange(e.target.value)} />;
   }
 }
 

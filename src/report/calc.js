@@ -13,7 +13,7 @@ export const TRAINING_KINDS = [...AEROBIC_KINDS, 'strength'];
 /** メニューの並び順: エルゴ → 水上 → その他の有酸素 → 筋トレ */
 const KIND_ORDER = ['ergo', 'water', 'cross', 'strength'];
 /** 強度区分の並び順。未入力は最後の「未分類」 */
-export const ZONE_ORDER = ['UT2', 'UT1', 'AT', 'TR', 'AN', '2kTT', 'other'];
+export const ZONE_ORDER = ['UT2', 'UT1', 'AT', 'TR', 'AN', '2kTT', 'race', 'other'];
 export const UNCLASSIFIED = 'unclassified';
 
 /** @param {unknown} v @returns {v is number} */
@@ -227,13 +227,14 @@ export function aerobicRow(e, labels) {
     const km = isNum(e.distance) ? e.distance : null;
     const meters = km !== null ? km * 1000 : null;
     const seconds = parseClock(e.time);
-    const running = e.type !== 'cycling';
+    const cycling = e.type === 'cycling' || e.type === 'bike';
+    const running = !cycling && e.type !== 'other';
     const paceSecPerKm = running && km && seconds ? seconds / km : null;
-    const speedKmh = !running && km && seconds ? km / (seconds / 3600) : null;
+    const speedKmh = cycling && km && seconds ? km / (seconds / 3600) : null;
     return {
-      kind: 'cross', id: e.id, name: running ? 'ラン' : 'バイク', distance: meters, seconds,
+      kind: 'cross', id: e.id, name: cycling ? 'バイク' : running ? 'ラン' : 'その他', distance: meters, seconds,
       split: null, rate: null, hr: isNum(e.avgHR) ? e.avgHR : null, boat: '', splits: /** @type {number[]} */ ([]),
-      paceSecPerKm, speedKmh, zone: '',
+      paceSecPerKm, speedKmh, zone: '', status: String(e.status ?? ''), planned: String(e.planned ?? ''),
     };
   }
 
@@ -242,7 +243,9 @@ export function aerobicRow(e, labels) {
   const pieceSecs = pieces.map((/** @type {any} */ p) => parseClock(p.time));
   const hasPieces = pieces.length > 0 && pieceSecs.every(isNum);
   const secs = /** @type {number[]} */ (hasPieces ? pieceSecs : []); // hasPieces のときだけ、すべて数値
-  const distance = hasPieces ? sum(pieces.map((/** @type {any} */ p) => Number(p.distance) || 0)) : isNum(e.distance) ? e.distance : null;
+  // 区間の距離が1つも入っていないメニュー(時間メニューで結果が未入力など)は、距離 0 ではなく「なし」
+  const pieceDistance = sum(pieces.map((/** @type {any} */ p) => Number(p.distance) || 0));
+  const distance = hasPieces ? (pieceDistance > 0 ? pieceDistance : null) : isNum(e.distance) ? e.distance : null;
   const seconds = hasPieces ? sum(secs) : parseClock(e.time);
 
   // セットごとのスプリット。保存してあるスプリットがなければ、距離とタイムから出す
@@ -261,8 +264,13 @@ export function aerobicRow(e, labels) {
   // 種目名: 「4×2000m」「2000m TT」「UT2 8000m」のように
   const timeMenu = hasPieces ? e.intervalBy === 'time' : e.menuBy === 'time';
   const unit = (/** @type {number | null} */ m, /** @type {number | null} */ s) => (timeMenu ? timeMenuName(s ?? 0) : `${Math.round(m ?? 0)}m`);
-  const menu = hasPieces
-    ? `${pieces.length}×${unit(Number(pieces[0].distance), secs[0])}`
+  // 区間があれば「4×2000m」「5×4分」。結果が未入力の区間でも、メニューの側(距離 or 時間)が分かれば名前にする
+  const firstSec = pieces.length ? parseClock(pieces[0].time) : null;
+  const firstDist = pieces.length ? Number(pieces[0].distance) : 0;
+  const menu = pieces.length
+    ? timeMenu
+      ? isNum(firstSec) && firstSec > 0 ? `${pieces.length}×${timeMenuName(firstSec)}` : `${pieces.length}本`
+      : firstDist > 0 ? `${pieces.length}×${Math.round(firstDist)}m` : `${pieces.length}本`
     : unit(distance, seconds);
   const zoneId = typeof e.type === 'string' ? e.type : '';
   const zoneText = zoneId === '2kTT' ? 'TT' : zoneId && zoneId !== 'other' ? labels.zoneLabel(zoneId) : '';
@@ -273,6 +281,7 @@ export function aerobicRow(e, labels) {
     split: avgSplitSec(seconds, distance), rate, hr: isNum(e.avgHR) ? e.avgHR : null,
     boat: e.boat ? labels.boatLabel(e.boat) : '', splits,
     paceSecPerKm: null, speedKmh: null, zone: zoneId || UNCLASSIFIED,
+    status: String(e.status ?? ''), planned: String(e.planned ?? ''),
   };
 }
 
@@ -383,13 +392,15 @@ function buildSessions(items, labels, workouts, all = []) {
         .map((e) => ({ ...aerobicRow(e, labels), vs: previousComparison(e, all, labels) }));
 
       // 筋トレは、種目ごとに1行(同じ種目を何度か記録していれば、1行にまとめる)
-      /** @type {Map<string, { weight: number, reps: number }[]>} */
+      // (自分で決めた種目名があれば、その名前でまとめる)
+      /** @type {Map<string, { name: string, sets: { weight: number, reps: number }[] }>} */
       const byExercise = new Map();
       for (const e of list.filter((x) => x.kind === 'strength').sort((a, b) => (a.id ?? 0) - (b.id ?? 0))) {
-        const id = String(e.exercise ?? '');
-        byExercise.set(id, [...(byExercise.get(id) ?? []), ...expandSets(e)]);
+        const name = e.exerciseName ? String(e.exerciseName) : labels.exerciseLabel(String(e.exercise ?? ''));
+        const cur = byExercise.get(name) ?? { name, sets: [] };
+        byExercise.set(name, { name, sets: [...cur.sets, ...expandSets(e)] });
       }
-      const strength = [...byExercise].map(([id, sets]) => ({ name: labels.exerciseLabel(id), ...summarizeStrength(sets) }));
+      const strength = [...byExercise.values()].map(({ name, sets }) => ({ name, ...summarizeStrength(sets) }));
       return { key, aerobic, strength };
     });
   return sessions;
