@@ -66,13 +66,14 @@ const toPiece = (p) => {
     rate: p.rate != null ? String(p.rate) : '',
     avgHR: p.avgHR != null ? String(p.avgHR) : '',
     maxHR: p.maxHR != null ? String(p.maxHR) : '',
+    rpe: p.rpe != null ? String(p.rpe) : '',
     _keep: keep,
   };
 };
 
 // メニューの「決めてある側」(距離メニューなら距離、時間メニューなら時間)を入れた n 本ぶんの行
 const makePieces = (by, spec, n) =>
-  Array.from({ length: n }, () => ({ distance: by === 'distance' ? spec : '', time: by === 'time' ? spec : '', split: '', rate: '', avgHR: '', maxHR: '' }));
+  Array.from({ length: n }, () => ({ distance: by === 'distance' ? spec : '', time: by === 'time' ? spec : '', split: '', rate: '', avgHR: '', maxHR: '', rpe: '' }));
 
 // 平均スプリットと、決めてある側(距離 or 時間)から、もう片方を計算する。
 // 編集で開いた記録のように、入力したスプリットと矛盾しない元の値があれば、それをそのまま使う
@@ -189,7 +190,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
   // 開いたときの区間(何も触っていないことを見分けるため)
   const [initialSig] = useState(() => JSON.stringify([(editing?.intervals ?? []).map(toPiece).map(({ _keep: _k, ...p }) => p), inferBy(editing)]));
   // 区間ごとの心拍(任意)。ふだんは閉じておき、入っている記録を開いたときだけ最初から開く
-  const [showPieceHr, setShowPieceHr] = useState(() => (editing?.intervals ?? []).some((p) => p.avgHR || p.maxHR));
+  const [showPieceHr, setShowPieceHr] = useState(() => (editing?.intervals ?? []).some((p) => p.avgHR || p.maxHR || p.rpe));
   // 痛み・違和感(任意): [{ part, level }]
   const [pains, setPains] = useState(() => (kind === 'condition' && editing?.pains ? editing.pains.map(({ part, level }) => ({ part, level })) : []));
   const [painOpen, setPainOpen] = useState(() => !!editing?.pains?.length);
@@ -273,7 +274,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
       setValues((cur) => ({ ...cur, type: r.type ?? cur.type, ...(r.boat && { boat: r.boat }), distance: '', time: '', split: '' }));
       setMode('intervals');
       setBy(menuBy);
-      setPieces(r.intervals.map((p) => ({ distance: menuBy === 'distance' ? String(p.distance) : '', time: menuBy === 'time' ? p.time : '', split: '', rate: '', avgHR: '', maxHR: '' })));
+      setPieces(r.intervals.map((p) => ({ distance: menuBy === 'distance' ? String(p.distance) : '', time: menuBy === 'time' ? p.time : '', split: '', rate: '', avgHR: '', maxHR: '', rpe: '' })));
     } else {
       const menuBy = r.menuBy === 'time' ? 'time' : 'distance';
       setMode('single');
@@ -344,6 +345,7 @@ export default function LogPage({ kind, onKind, onSaved, editing, workout }) {
           const hr = {
             ...(Number(p.avgHR) >= 30 && Number(p.avgHR) <= 230 && { avgHR: Number(p.avgHR) }),
             ...(Number(p.maxHR) >= 30 && Number(p.maxHR) <= 230 && { maxHR: Number(p.maxHR) }),
+            ...(Number(p.rpe) >= 1 && Number(p.rpe) <= 10 && { rpe: Number(p.rpe) }),
           };
           if (r) {
             const watts = Math.round(wattsFromSplit(parseTime(r.split)));
@@ -790,10 +792,11 @@ function IntervalEditor({ by, showWatts, showHr, setShowHr, pieces, setPieces, d
               </p>
             )}
             {showHr && (
-              <div className="grid grid-cols-[1.25rem_1fr_1fr] items-center gap-1.5">
+              <div className="grid grid-cols-[1.25rem_1fr_1fr_4rem] items-center gap-1.5">
                 <span />
                 <input className="input !px-2 !py-1.5 text-sm" type="number" inputMode="numeric" aria-label={`${i + 1}本目の平均心拍`} placeholder="平均心拍" value={p.avgHR} onChange={(e) => update(i, { avgHR: e.target.value })} />
                 <input className="input !px-2 !py-1.5 text-sm" type="number" inputMode="numeric" aria-label={`${i + 1}本目の最大心拍`} placeholder="最大心拍" value={p.maxHR} onChange={(e) => update(i, { maxHR: e.target.value })} />
+                <input className="input !px-2 !py-1.5 text-sm" type="number" inputMode="numeric" min="1" max="10" aria-label={`${i + 1}本目のきつさRPE`} placeholder="RPE" value={p.rpe} onChange={(e) => update(i, { rpe: e.target.value })} />
               </div>
             )}
           </div>
@@ -801,7 +804,7 @@ function IntervalEditor({ by, showWatts, showHr, setShowHr, pieces, setPieces, d
       })}
 
       <button type="button" onClick={() => setShowHr(!showHr)} className="text-sm font-medium text-brand">
-        {showHr ? '▾' : '▸'} 区間ごとの心拍も入れる(任意)
+        {showHr ? '▾' : '▸'} 区間ごとの心拍・きつさも入れる(任意)
       </button>
 
       {done.length > 0 && (

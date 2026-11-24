@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { looseDuration, normalizeRecord, cleanPains } from './lib.js';
+import { looseDuration, normalizeRecord, cleanPains, KINDS } from './lib.js';
 
 describe('ゆるい時間表記', () => {
   it('コロンつきはそのまま、数字だけは分、「+」は足し算', () => {
@@ -119,5 +119,21 @@ describe('入力欄の案内文の例が、実際の整形と合っている', (
     }
     expect(examples.length).toBeGreaterThanOrEqual(4);
     for (const [, digits, expected] of examples) expect(formatTimeInput(digits)).toBe(expected);
+  });
+});
+
+describe('区間ごとのきつさ(RPE)と追加項目', () => {
+  it('区間のRPEを残し、範囲外は捨てる', () => {
+    const r = normalizeRecord('ergo', { intervals: [{ distance: 2500, time: '9:50.0', rpe: 6 }, { distance: 2500, rpe: 99 }] });
+    expect(r.intervals.map((p) => p.rpe)).toEqual([6, undefined]);
+  });
+  it('RPEだけの区間も残す', () => {
+    const r = normalizeRecord('ergo', { intervals: [{ rpe: 7 }] });
+    expect(r.intervals).toHaveLength(1);
+  });
+  it('クルー・K/P/T・バイクのワットだけでも保存できる項目になっている', () => {
+    expect(KINDS.water.requireAny).toContain('crew');
+    expect(KINDS.ergo.requireAny).toEqual(expect.arrayContaining(['keep', 'problem', 'tryNext']));
+    expect(KINDS.cross.requireAny).toContain('watts');
   });
 });

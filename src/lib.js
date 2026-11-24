@@ -101,6 +101,12 @@ const COACH_FIELDS = [
   { key: 'coach', label: '指導・助言してくれた人', type: 'text', placeholder: '例: 三浦さん', advanced: true },
   { key: 'advice', label: '助言の内容', type: 'textarea', rows: 2, placeholder: '例: 上体の筋肉をダイナミックに使う', advanced: true },
 ];
+// 振り返りの型 K(続けたいこと)/ P(課題)/ T(次に試すこと)。使う人だけ「さらに記録する」で入れる
+const KPT_FIELDS = [
+  { key: 'keep', label: 'K 良かったこと・続けること', type: 'textarea', rows: 2, advanced: true },
+  { key: 'problem', label: 'P 課題・問題', type: 'textarea', rows: 2, advanced: true },
+  { key: 'tryNext', label: 'T 次に試すこと', type: 'textarea', rows: 2, advanced: true },
+];
 const MEMO_FIELD = { key: 'memo', label: 'メモ', type: 'textarea', rows: 3, placeholder: 'その日の感想、気づいたこと、痛みなど' };
 
 // 痛み・違和感の部位と程度(コンディションの記録に、任意で付ける)
@@ -146,6 +152,9 @@ export const EXERCISES = [
   { id: 'legPress', label: 'レッグプレス' },
   { id: 'bentOverRow', label: 'ベントオーバーロウ' },
   { id: 'pullUp', label: '懸垂' },
+  { id: 'pushUp', label: '腕立て伏せ' },
+  { id: 'shoulderPress', label: 'ショルダー/ミリタリープレス' },
+  { id: 'bulgarian', label: 'ブルガリアンスクワット' },
   { id: 'powerClean', label: 'パワークリーン' },
   { id: 'hangClean', label: 'ハングクリーン' },
   { id: 'abRoller', label: 'アブローラー' },
@@ -170,7 +179,7 @@ export const KINDS = {
     label: 'エルゴ',
     sessionable: true,
     // 数字がなくても、メモ・ねらい・予定があれば保存できる(「腰痛で断念」のような記録)
-    requireAny: ['distance', 'time', 'memo', 'planned', 'aim', 'status', 'coach', 'advice', 'targetSplit'],
+    requireAny: ['distance', 'time', 'memo', 'planned', 'aim', 'status', 'coach', 'advice', 'targetSplit', 'keep', 'problem', 'tryNext'],
     menuKeys: ['type', 'distance'],
     menuLabel: (r) =>
       `${labelOf(ERGO_ZONES, r.type)} ${r.intervals?.length ? intervalLabel(r) : r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}m`}`,
@@ -194,6 +203,7 @@ export const KINDS = {
       { key: 'aim', label: 'ねらい・目標', type: 'text', placeholder: '例: 目標2:05。セット早く、上体我慢', advanced: true },
       { key: 'targetSplit', label: '目標スプリット(/500m・数字だけ入力: 2050 → 2:05.0)', type: 'time', advanced: true },
       { key: 'rest', label: 'レスト(インターバルの間)', type: 'text', placeholder: '例: 1分 / r40sec', advanced: true },
+      ...KPT_FIELDS,
       ...COACH_FIELDS,
       { key: 'videoUrl', label: '動画のURL', type: 'text', placeholder: 'https://…', advanced: true },
     ],
@@ -245,7 +255,7 @@ export const KINDS = {
     table: 'crossTrainingRecords',
     label: 'ラン/バイク',
     sessionable: true,
-    requireAny: ['distance', 'time', 'memo', 'planned', 'status', 'coach', 'advice'],
+    requireAny: ['distance', 'time', 'memo', 'planned', 'status', 'coach', 'advice', 'watts'],
     menuKeys: ['type', 'distance'],
     menuLabel: (r) => `${r.type === 'cycling' ? 'バイク' : r.type === 'other' ? 'その他' : 'ラン'} ${r.menuBy === 'time' ? timeMenuLabel(parseTime(r.time) || 0) : `${r.distance}km`}`,
     fields: [
@@ -258,6 +268,7 @@ export const KINDS = {
       { key: 'pace', label: '平均ペース(/km・数字だけ入力: 5300 → 5:30.0)', type: 'time' },
       { key: 'avgSpeed', label: '平均速度 (km/h)', type: 'number', step: 0.1 },
       { key: 'avgHR', label: '平均心拍', type: 'number' },
+      { key: 'watts', label: '平均ワット(バイクのパワーメーターなど)', type: 'number' },
       { key: 'rpe', label: 'きつさ RPE', type: 'scale', min: 1, max: 10 },
       MEMO_FIELD,
       { key: 'status', label: '予定どおりできたか', type: 'choice', options: STATUS_OPTIONS, default: '', optional: true, advanced: true },
@@ -339,7 +350,7 @@ KINDS.nutrition = {
     ...KINDS.ergo,
     table: 'waterRecords',
     label: '水上',
-    requireAny: [...KINDS.ergo.requireAny, 'technique'],
+    requireAny: [...KINDS.ergo.requireAny, 'technique', 'crew'],
     menuLabel: (r) =>
       [
         boatShort(r.boat),
@@ -348,6 +359,7 @@ KINDS.nutrition = {
       ].filter(Boolean).join(' '),
     fields: [
       { key: 'boat', label: '艇種', type: 'choice', options: BOATS, default: '' },
+      { key: 'crew', label: '一緒に乗った人(クルー)', type: 'text', placeholder: '例: 渡辺・内田 / 新人戦クルー', advanced: true },
       typeField,
       ...beforeMemo,
       {
@@ -454,6 +466,10 @@ const saneRate = (v) => {
 };
 
 // 心拍として、ありえない値(入力ミス)は捨てる
+const saneRpe = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 1 && n <= 10 ? n : undefined;
+};
 const saneHR = (v) => {
   const n = num(v);
   return n >= 30 && n <= 230 ? n : undefined;
@@ -487,9 +503,9 @@ export function normalizeRecord(kind, r) {
           let time = sec > 0 ? formatTime(sec) : undefined;
           if (!(distance > 0) && sec > 0 && splitSec > 0) distance = Math.round((sec / splitSec) * 500);
           if (!time && distance > 0 && splitSec > 0) time = formatTime((splitSec * distance) / 500);
-          return { ...p, distance: distance > 0 ? distance : undefined, time, split: splitSec > 0 ? normalizeTime(p.split) : undefined, rate: saneRate(p.rate), avgHR: saneHR(p.avgHR), maxHR: saneHR(p.maxHR) };
+          return { ...p, distance: distance > 0 ? distance : undefined, time, split: splitSec > 0 ? normalizeTime(p.split) : undefined, rate: saneRate(p.rate), avgHR: saneHR(p.avgHR), maxHR: saneHR(p.maxHR), rpe: saneRpe(p.rpe) };
         })
-        .filter((p) => p.distance || p.time || p.split || p.avgHR || p.maxHR);
+        .filter((p) => p.distance || p.time || p.split || p.avgHR || p.maxHR || p.rpe);
       // 全区間の距離が空なら、時間メニュー
       const inferredBy = raw.length && raw.every((p) => !(num(p.distance) > 0)) ? 'time' : undefined;
       return {

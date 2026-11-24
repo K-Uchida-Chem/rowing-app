@@ -46,7 +46,7 @@ export function rowOf(e) {
     e.intervals.forEach((p, i) => {
       const main = e.intervalBy === 'time' ? (p.distance ? `${p.distance}m` : p.time) : p.time || (p.distance ? `${p.distance}m` : '');
       const hr = p.avgHR && p.maxHR ? `HR${p.avgHR}/${p.maxHR}` : p.avgHR ? `HR${p.avgHR}` : p.maxHR ? `最大HR${p.maxHR}` : '';
-      lines.push(join([`${i + 1}本目`, main, p.split && `@${p.split}`, p.watts && `${p.watts}W`, p.rate && `${p.rate}spm`, hr], '  '));
+      lines.push(join([`${i + 1}本目`, main, p.split && `@${p.split}`, p.watts && `${p.watts}W`, p.rate && `${p.rate}spm`, hr, p.rpe && `RPE${p.rpe}`], '  '));
     });
   }
   if (e.planned) lines.push(`予定: ${e.planned}`);
@@ -57,10 +57,14 @@ export function rowOf(e) {
     lines.push(`目標 ${e.targetSplit}${gap === null ? '' : ` / 実績 ${e.split}(${gap <= 0 ? '−' : '+'}${Math.abs(gap).toFixed(1)}秒)`}`);
   }
   if (e.rest) lines.push(`レスト: ${e.rest}`);
+  if (e.crew) lines.push(`クルー: ${e.crew}`);
   if (e.event || e.result) lines.push(join([e.event && `大会: ${e.event}`, e.result && `結果: ${e.result}`]));
   if (e.coach || e.advice) lines.push(`${e.coach ? `指導: ${e.coach}` : '助言'}${e.advice ? `${e.coach ? ' — ' : ': '}${e.advice}` : ''}`);
   if (e.pains?.length) lines.push(`痛み・違和感: ${e.pains.map((p) => `${painLabel(p.part)} ${PAIN_LEVELS.find((l) => l.level === p.level)?.label ?? p.level}`).join('、')}`);
   if (e.technique) lines.push(`振り返り: ${e.technique}`);
+  if (e.keep) lines.push(`K: ${e.keep}`);
+  if (e.problem) lines.push(`P: ${e.problem}`);
+  if (e.tryNext) lines.push(`T: ${e.tryNext}`);
   if (e.memo && !e.nameFromMemo) lines.push(e.memo);
   const links = e.videoUrl ? [{ url: String(e.videoUrl), label: '動画' }] : [];
   const badge = STATUS_LABEL[e.status] ?? '';
@@ -98,6 +102,7 @@ export function rowOf(e) {
         join([
           byTime ? e.distance && `${e.distance}km` : e.time && (e.timeText ? `${e.time}(${e.timeText})` : e.time),
           running ? pace && `${pace.replace(/\.0$/, '')}/km` : cycling && speed && `${speed}km/h`,
+          e.watts && `${e.watts}W`,
           e.avgHR && `HR${e.avgHR}`,
           e.rpe && `RPE${e.rpe}`,
         ])

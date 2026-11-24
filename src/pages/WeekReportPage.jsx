@@ -234,6 +234,9 @@ function AerobicRow({ row: r }) {
       {r.pieceHr.some((v) => v !== null) && (
         <p className="text-[11px] leading-snug tabular-nums text-mute">HR {r.pieceHr.map((v) => v ?? '–').join(' / ')}</p>
       )}
+      {r.pieceRpe.some((v) => v !== null) && (
+        <p className="text-[11px] leading-snug tabular-nums text-mute">RPE {r.pieceRpe.map((v) => v ?? '–').join(' / ')}</p>
+      )}
       {r.targetSplit !== null && (
         <p className="text-[11px] leading-snug tabular-nums text-mute">
           目標 @{formatSplit(r.targetSplit)}

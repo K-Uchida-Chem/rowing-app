@@ -235,7 +235,7 @@ export function aerobicRow(e, labels) {
       kind: 'cross', id: e.id, name: cycling ? 'バイク' : running ? 'ラン' : 'その他', distance: meters, seconds,
       split: null, rate: null, hr: isNum(e.avgHR) ? e.avgHR : null, boat: '', splits: /** @type {number[]} */ ([]),
       paceSecPerKm, speedKmh, zone: '', status: String(e.status ?? ''), planned: String(e.planned ?? ''),
-      targetSplit: null, targetGap: /** @type {number | null} */ (null), pieceHr: /** @type {(number | null)[]} */ ([]), coach: String(e.coach ?? ''),
+      targetSplit: null, targetGap: /** @type {number | null} */ (null), pieceHr: /** @type {(number | null)[]} */ ([]), pieceRpe: /** @type {(number | null)[]} */ ([]), coach: String(e.coach ?? ''),
     };
   }
 
@@ -287,6 +287,7 @@ export function aerobicRow(e, labels) {
     targetSplit: parseClock(e.targetSplit),
     targetGap: ((s, t) => (isNum(s) && isNum(t) && t > 0 ? s - t : null))(avgSplitSec(seconds, distance), parseClock(e.targetSplit)),
     pieceHr: pieces.map((/** @type {any} */ p) => (isNum(p.avgHR) ? p.avgHR : null)),
+    pieceRpe: pieces.map((/** @type {any} */ p) => (isNum(p.rpe) ? p.rpe : null)),
     coach: String(e.coach ?? ''),
   };
 }
